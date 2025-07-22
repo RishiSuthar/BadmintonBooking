@@ -67,7 +67,7 @@ function createModal(type, message, callback) {
     let htmlContent = '';
     if (type === 'error') {
         htmlContent = `
-            <h3 style="color: #e74c3c; margin-bottom: 1rem;">Error</h3>
+            <h3 style="color: #e74c3c; margin-bottom: 1rem;">Note</h3>
             <p>${message}</p>
             <button class="auth-btn" style="margin-top: 1rem;" onclick="this.closest('.modal').remove()">OK</button>
         `;
@@ -470,6 +470,7 @@ function formatTime(time) {
 }
 
 // Display bookings
+// Display bookings
 async function displayBookings(bookings) {
     bookingsListEl.innerHTML = '';
     
@@ -480,22 +481,37 @@ async function displayBookings(bookings) {
     
     bookings.sort((a, b) => a.time.localeCompare(b.time));
     
+    // Get all user profiles at once for efficiency
+    const userIds = bookings.map(b => b.user_id);
+    const { data: users, error } = await supabaseClient
+        .from('profiles')
+        .select('id, name')
+        .in('id', userIds);
+    
+    if (error) {
+        console.error('Error fetching users:', error);
+        showError(bookingsListEl, 'Failed to load booking details.');
+        return;
+    }
+    
+    // Create a map of user IDs to names
+    const userMap = new Map();
+    users.forEach(user => userMap.set(user.id, user.name));
+    
     for (const booking of bookings) {
-        try {
-            const { data: user } = await supabaseClient.from('profiles').select('name').eq('id', booking.user_id).single();
-            const bookingEl = document.createElement('div');
-            bookingEl.className = 'booking-item';
-            bookingEl.innerHTML = `
-                <h4>${user ? (booking.user_id === userProfile?.id ? 'You' : `Booked by ${user.name}`) : 'Unknown'}</h4>
-                <p>${formatTime(booking.time)} - 1 Hour</p>
-            `;
-            bookingsListEl.appendChild(bookingEl);
-        } catch (error) {
-            console.error('Error fetching user for booking:', error);
-        }
+        const bookingEl = document.createElement('div');
+        bookingEl.className = 'booking-item';
+        
+        const userName = userMap.get(booking.user_id) || 'Unknown';
+        const isCurrentUser = userProfile && booking.user_id === userProfile.id;
+        
+        bookingEl.innerHTML = `
+            <h4>${isCurrentUser ? 'You' : `Booked by ${userName}`}</h4>
+            <p>${formatTime(booking.time)} - 1 Hour</p>
+        `;
+        bookingsListEl.appendChild(bookingEl);
     }
 }
-
 // Display user's bookings with cancel/modify options
 function displayUserBookings(bookings) {
     userBookingsListEl.innerHTML = '';
