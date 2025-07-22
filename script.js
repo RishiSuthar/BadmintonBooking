@@ -1,5 +1,5 @@
 // Configuration - Replace with your Google Apps Script URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbwfevnbpjtkPDO1fT-Er4M0cH2FP6mVB6U5g4z_XqhwL61ft6LYksVV3UyKwR_Rl5IT/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxnevUc9P5hCZG0MDtrlvuSEmAvvMLUAmgH7PL9RVLHrIcYSmkglQLVhKg2AJySAFDR/exec';
 
 // DOM Elements
 const calendarEl = document.getElementById('calendar');
@@ -59,6 +59,11 @@ async function loadBookingsForDate(date) {
         showLoading(bookingsListEl, 'Loading bookings...');
         
         const response = await fetch(`${API_URL}?date=${date}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
         if (data.error) {
@@ -70,8 +75,8 @@ async function loadBookingsForDate(date) {
         generateTimeSlots(data.bookings);
         selectDateOnCalendar(date);
     } catch (error) {
+        console.error('Fetch error:', error);
         showError(bookingsListEl, 'Failed to load bookings. Please try again.');
-        console.error('Error:', error);
     }
 }
 
@@ -157,6 +162,11 @@ async function generateTimeSlotsForSelectedDate() {
     
     try {
         const response = await fetch(`${API_URL}?date=${selectedDate}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
         if (!data.error) {
@@ -241,9 +251,11 @@ async function handleBooking() {
                  duration === '1.5' ? '1.5 Hours' : '2 Hours'
     };
     
+    // Save original button text
+    const originalBtnText = bookBtn.textContent;
+    
     try {
         // Show loading state
-        const originalBtnText = bookBtn.textContent;
         bookBtn.innerHTML = '<span class="loading"></span> Processing...';
         bookBtn.disabled = true;
         
@@ -256,11 +268,14 @@ async function handleBooking() {
             body: JSON.stringify(bookingData)
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const result = await response.json();
         
         if (result.error) {
-            alert('Error: ' + result.error);
-            return;
+            throw new Error(result.error);
         }
         
         // Show success message
@@ -283,8 +298,8 @@ async function handleBooking() {
         }, 3000);
         
     } catch (error) {
-        console.error('Error:', error);
-        alert('Failed to save booking. Please try again.');
+        console.error('Booking error:', error);
+        alert(error.message || 'Failed to save booking. Please try again.');
     } finally {
         // Reset button state
         bookBtn.textContent = originalBtnText;
