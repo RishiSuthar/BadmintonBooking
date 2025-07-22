@@ -1,5 +1,5 @@
 // Configuration - Replace with your Google Apps Script URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbxnevUc9P5hCZG0MDtrlvuSEmAvvMLUAmgH7PL9RVLHrIcYSmkglQLVhKg2AJySAFDR/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzF_tHSTpk-3R10-Lnp5BD3k6NvxfYPbnZw_JVGv168uYDiexnZFSDOLF4gI7oCSF9J/exec';
 
 // DOM Elements
 const calendarEl = document.getElementById('calendar');
@@ -58,10 +58,17 @@ async function loadBookingsForDate(date) {
     try {
         showLoading(bookingsListEl, 'Loading bookings...');
         
-        const response = await fetch(`${API_URL}?date=${date}`);
+        const response = await fetch(`${API_URL}?date=${date}`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
         }
         
         const data = await response.json();
@@ -161,10 +168,17 @@ async function generateTimeSlotsForSelectedDate() {
     if (!selectedDate) return;
     
     try {
-        const response = await fetch(`${API_URL}?date=${selectedDate}`);
+        const response = await fetch(`${API_URL}?date=${selectedDate}`, {
+            method: 'GET',
+            mode: 'cors',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
         }
         
         const data = await response.json();
@@ -259,17 +273,23 @@ async function handleBooking() {
         bookBtn.innerHTML = '<span class="loading"></span> Processing...';
         bookBtn.disabled = true;
         
+        // Log request data for debugging
+        console.log('Sending booking data:', bookingData);
+        
         // Send booking to server
         const response = await fetch(API_URL, {
             method: 'POST',
+            mode: 'cors',
             headers: {
                 'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify(bookingData)
         });
         
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
         }
         
         const result = await response.json();
@@ -299,7 +319,7 @@ async function handleBooking() {
         
     } catch (error) {
         console.error('Booking error:', error);
-        alert(error.message || 'Failed to save booking. Please try again.');
+        alert(`Failed to save booking: ${error.message}. Please try again.`);
     } finally {
         // Reset button state
         bookBtn.textContent = originalBtnText;
