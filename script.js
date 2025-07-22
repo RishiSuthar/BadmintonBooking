@@ -1,26 +1,253 @@
-// Supabase Configuration
-const API_URL = 'https://wezgcqbagksqxyugqqad.supabase.co/rest/v1/bookings';
-const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlemdjcWJhZ2tzcXh5dWdxcWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTUxNjksImV4cCI6MjA2ODY3MTE2OX0.AXnI7UgvWhnnAdZ5V9WGucdI4T-z2vTVAuRBU0R9qKQ';
+const SUPABASE_URL = 'https://wezgcqbagksqxyugqqad.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlemdjcWJhZ2tzcXh5dWdxcWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTUxNjksImV4cCI6MjA2ODY3MTE2OX0.AXnI7UgvWhnnAdZ5V9WGucdI4T-z2vTVAuRBU0R9qKQ';
+
+// Check if supabase is defined
+if (typeof supabase === 'undefined') {
+    console.error('Supabase client is not loaded. Ensure the Supabase CDN is included and loaded correctly.');
+    alert('Failed to initialize the application. Please check your internet connection and try again.');
+    throw new Error('Supabase client is not defined');
+}
+
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // DOM Elements
 const calendarEl = document.getElementById('calendar');
 const timeSlotsEl = document.getElementById('time-slots');
 const bookingsListEl = document.getElementById('bookings-list');
+const userBookingsListEl = document.getElementById('user-bookings-list');
 const bookBtn = document.getElementById('book-btn');
 const successMessage = document.getElementById('success-message');
 const receiptMessage = document.getElementById('receipt-message');
 const currentYearEl = document.getElementById('current-year');
+const loginBtn = document.getElementById('login-btn');
+const registerBtn = document.getElementById('register-btn');
+const logoutBtn = document.getElementById('logout-btn');
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const loginFormElement = document.getElementById('login-form-element');
+const registerFormElement = document.getElementById('register-form-element');
+const mainContent = document.getElementById('main-content');
+const bookingPanel = document.getElementById('booking-panel');
+const userPanel = document.getElementById('user-panel');
+const profileName = document.getElementById('profile-name');
+const profilePhone = document.getElementById('profile-phone');
+const updateProfileBtn = document.getElementById('update-profile-btn');
 
 // Selected booking details
 let selectedDate = null;
 let selectedTime = null;
+let userProfile = null;
 
 // Initialize the application
 async function init() {
     currentYearEl.textContent = new Date().getFullYear();
-    generateCalendar();
-    await loadBookingsForDate(getTodayDate());
+    await checkAuthStatus();
+    loginBtn.addEventListener('click', () => toggleForm('login'));
+    registerBtn.addEventListener('click', () => toggleForm('register'));
+    logoutBtn.addEventListener('click', handleLogout);
+    loginFormElement.addEventListener('submit', handleLogin);
+    registerFormElement.addEventListener('submit', handleRegister);
     bookBtn.addEventListener('click', handleBooking);
+    updateProfileBtn.addEventListener('click', handleUpdateProfile);
+}
+
+// Check authentication status
+async function checkAuthStatus() {
+    try {
+        const { data: { user }, error } = await supabaseClient.auth.getUser();
+        if (error) {
+            if (error.name === 'AuthSessionMissingError') {
+                // No session exists, show guest interface
+                showGuestInterface();
+                generateCalendar();
+                await loadBookingsForDate(getTodayDate());
+                return;
+            }
+            throw error; // Rethrow other errors
+        }
+        if (user) {
+            await loadUserProfile(user.id);
+            showUserInterface();
+            generateCalendar();
+            await loadBookingsForDate(getTodayDate());
+            await loadUserBookings();
+        } else {
+            showGuestInterface();
+            generateCalendar();
+            await loadBookingsForDate(getTodayDate());
+        }
+    } catch (error) {
+        console.error('Error checking auth status:', error);
+        showGuestInterface();
+        generateCalendar();
+        await loadBookingsForDate(getTodayDate());
+    }
+}
+
+// Show guest interface (login/register)
+function showGuestInterface() {
+    loginBtn.style.display = 'inline-block';
+    registerBtn.style.display = 'inline-block';
+    logoutBtn.style.display = 'none';
+    bookingPanel.style.display = 'block';
+    userPanel.style.display = 'none';
+    loginForm.style.display = 'none';
+    registerForm.style.display = 'none';
+}
+
+// Show user interface (booking + dashboard)
+function showUserInterface() {
+    loginBtn.style.display = 'none';
+    registerBtn.style.display = 'none';
+    logoutBtn.style.display = 'inline-block';
+    bookingPanel.style.display = 'block';
+    userPanel.style.display = 'block';
+    loginForm.style.display = 'none';
+    registerForm.style.display = 'none';
+    if (userProfile) {
+        profileName.textContent = userProfile.name;
+        profilePhone.textContent = userProfile.phone;
+    }
+}
+
+// Toggle login/register form
+function toggleForm(formType) {
+    loginForm.style.display = formType === 'login' ? 'block' : 'none';
+    registerForm.style.display = formType === 'register' ? 'block' : 'none';
+    bookingPanel.style.display = formType === 'none' ? 'block' : 'none';
+    userPanel.style.display = formType === 'none' && userProfile ? 'block' : 'none';
+}
+
+// Load user profile
+async function loadUserProfile(userId) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+        if (error) {
+            if (error.code === 'PGRST116') {
+                // No profile exists, prompt user to create one
+                const name = prompt('Please enter your name:');
+                const phone = prompt('Please enter your phone number:');
+                if (name && phone) {
+                    const { error: insertError } = await supabaseClient
+                        .from('profiles')
+                        .insert({ id: userId, name: name.trim(), phone: phone.trim() })
+                        .select()
+                        .single();
+                    if (insertError) throw insertError;
+                    userProfile = { id: userId, name: name.trim(), phone: phone.trim() };
+                } else {
+                    throw new Error('Profile creation cancelled');
+                }
+            } else {
+                throw error;
+            }
+        } else {
+            userProfile = data;
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        alert('Failed to load or create profile. Please try again.');
+    }
+}
+
+// Handle login
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+    
+    try {
+        const { error } = await supabaseClient.auth.signInWithPassword({
+            email,
+            password
+        });
+        if (error) throw error;
+        
+        const { data: { user } } = await supabaseClient.auth.getUser();
+        await loadUserProfile(user.id);
+        showUserInterface();
+        generateCalendar();
+        await loadBookingsForDate(getTodayDate());
+        await loadUserBookings();
+    } catch (error) {
+        console.error('Login error:', error);
+        alert(`Login failed: ${error.message}`);
+    }
+}
+
+// Handle registration
+async function handleRegister(e) {
+    e.preventDefault();
+    const name = document.getElementById('register-name').value.trim();
+    const phone = document.getElementById('register-phone').value.trim();
+    const email = document.getElementById('register-email').value.trim();
+    const password = document.getElementById('register-password').value.trim();
+    
+    try {
+        const { data: { user }, error } = await supabaseClient.auth.signUp({
+            email,
+            password
+        });
+        if (error) throw error;
+        
+        // Store name and phone temporarily (e.g., in localStorage) until login
+        localStorage.setItem('pendingProfile', JSON.stringify({ name, phone, userId: user.id }));
+        
+        alert('Registration successful! Please check your email to confirm your account, then log in to complete your profile.');
+        toggleForm('login');
+    } catch (error) {
+        console.error('Registration error:', error);
+        alert(`Registration failed: ${error.message}`);
+    }
+}
+
+// Handle logout
+async function handleLogout() {
+    try {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) throw error;
+        
+        userProfile = null;
+        selectedDate = null;
+        selectedTime = null;
+        showGuestInterface();
+        calendarEl.innerHTML = '';
+        timeSlotsEl.innerHTML = '';
+        bookingsListEl.innerHTML = '';
+        userBookingsListEl.innerHTML = '';
+    } catch (error) {
+        console.error('Logout error:', error);
+        alert(`Logout failed: ${error.message}`);
+    }
+}
+
+// Handle profile update
+async function handleUpdateProfile() {
+    const newName = prompt('Enter your name:', userProfile.name);
+    const newPhone = prompt('Enter your phone number:', userProfile.phone);
+    
+    if (newName && newPhone) {
+        try {
+            const { error } = await supabaseClient
+                .from('profiles')
+                .update({ name: newName.trim(), phone: newPhone.trim() })
+                .eq('id', userProfile.id);
+            if (error) throw error;
+            
+            userProfile.name = newName.trim();
+            userProfile.phone = newPhone.trim();
+            profileName.textContent = userProfile.name;
+            profilePhone.textContent = userProfile.phone;
+            alert('Profile updated successfully!');
+        } catch (error) {
+            console.error('Profile update error:', error);
+            alert(`Profile update failed: ${error.message}`);
+        }
+    }
 }
 
 // Get today's date in YYYY-MM-DD format
@@ -41,27 +268,40 @@ function formatDate(date) {
 async function loadBookingsForDate(date) {
     try {
         showLoading(bookingsListEl, 'Loading bookings...');
-        const response = await fetch(`${API_URL}?date=eq.${date}&select=*`, {
-            method: 'GET',
-            headers: {
-                'Apikey': API_KEY,
-                'Authorization': `Bearer ${API_KEY}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            }
-        });
+        const { data: bookings, error } = await supabaseClient
+            .from('bookings')
+            .select('*')
+            .eq('date', date);
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
+        if (error) throw error;
         
-        const bookings = await response.json();
         displayBookings(bookings);
         generateTimeSlots(bookings);
         selectDateOnCalendar(date);
     } catch (error) {
         console.error('Fetch error:', error);
         showError(bookingsListEl, `Failed to load bookings: ${error.message}. Please try again.`);
+    }
+}
+
+// Load user's bookings
+async function loadUserBookings() {
+    if (!userProfile) return;
+    try {
+        showLoading(userBookingsListEl, 'Loading your bookings...');
+        const { data: bookings, error } = await supabaseClient
+            .from('bookings')
+            .select('*')
+            .eq('user_id', userProfile.id)
+            .order('date', { ascending: true })
+            .order('time', { ascending: true });
+        
+        if (error) throw error;
+        
+        displayUserBookings(bookings);
+    } catch (error) {
+        console.error('Fetch error:', error);
+        showError(userBookingsListEl, `Failed to load your bookings: ${error.message}. Please try again.`);
     }
 }
 
@@ -143,33 +383,6 @@ function formatTime(time) {
     return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
 }
 
-// Generate time slots for currently selected date
-async function generateTimeSlotsForSelectedDate() {
-    if (!selectedDate) return;
-    
-    try {
-        const response = await fetch(`${API_URL}?date=eq.${selectedDate}&select=*`, {
-            method: 'GET',
-            headers: {
-                'Apikey': API_KEY,
-                'Authorization': `Bearer ${API_KEY}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            }
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
-        
-        const bookings = await response.json();
-        generateTimeSlots(bookings);
-    } catch (error) {
-        console.error('Error loading time slots:', error);
-        showError(timeSlotsEl, `Failed to load time slots: ${error.message}. Please try again.`);
-    }
-}
-
 // Display bookings
 function displayBookings(bookings) {
     bookingsListEl.innerHTML = '';
@@ -181,15 +394,50 @@ function displayBookings(bookings) {
     
     bookings.sort((a, b) => a.time.localeCompare(b.time));
     
+    bookings.forEach(async booking => {
+        try {
+            const { data: user } = await supabaseClient.from('profiles').select('name').eq('id', booking.user_id).single();
+            const bookingEl = document.createElement('div');
+            bookingEl.className = 'booking-item';
+            bookingEl.innerHTML = `
+                <h4>${user ? user.name : 'Unknown'}</h4>
+                <p>${formatTime(booking.time)} - 1 Hour</p>
+            `;
+            bookingsListEl.appendChild(bookingEl);
+        } catch (error) {
+            console.error('Error fetching user for booking:', error);
+        }
+    });
+}
+
+// Display user's bookings with cancel/modify options
+function displayUserBookings(bookings) {
+    userBookingsListEl.innerHTML = '';
+    
+    if (bookings.length === 0) {
+        userBookingsListEl.innerHTML = '<p>You have no bookings yet</p>';
+        return;
+    }
+    
     bookings.forEach(booking => {
         const bookingEl = document.createElement('div');
         bookingEl.className = 'booking-item';
         bookingEl.innerHTML = `
-            <h4>${booking.name}</h4>
+            <h4>${booking.date}</h4>
             <p>${formatTime(booking.time)} - 1 Hour</p>
-            <p>Phone: ${booking.phone}</p>
+            <p>Status: ${booking.status}</p>
+            <button class="cancel-btn" data-id="${booking.id}">Cancel Booking</button>
+            <button class="modify-btn" data-id="${booking.id}" data-date="${booking.date}" data-time="${booking.time}">Modify Booking</button>
         `;
-        bookingsListEl.appendChild(bookingEl);
+        userBookingsListEl.appendChild(bookingEl);
+    });
+    
+    document.querySelectorAll('.cancel-btn').forEach(btn => {
+        btn.addEventListener('click', () => handleCancelBooking(btn.dataset.id));
+    });
+    
+    document.querySelectorAll('.modify-btn').forEach(btn => {
+        btn.addEventListener('click', () => handleModifyBooking(btn.dataset.id, btn.dataset.date, btn.dataset.time));
     });
 }
 
@@ -203,22 +451,18 @@ function updateBookingSummary() {
 
 // Handle booking submission
 async function handleBooking() {
-    const name = document.getElementById('name').value.trim();
-    const phone = document.getElementById('phone').value.trim();
-    
-    if (!name || !phone) {
-        alert('Please enter your name and phone number');
+    if (!userProfile) {
+        alert('Please log in to book a slot.');
         return;
     }
     
     if (!selectedDate || !selectedTime) {
-        alert('Please select a date and time');
+        alert('Please select a date and time.');
         return;
     }
     
     const bookingData = {
-        name: name,
-        phone: phone,
+        user_id: userProfile.id,
         date: selectedDate,
         time: selectedTime,
         duration: '1 Hour',
@@ -233,50 +477,24 @@ async function handleBooking() {
         
         console.log('Sending booking data:', bookingData);
         
-        // Check for existing booking
         const exists = await checkBookingExists(selectedDate, selectedTime);
         if (exists) {
             throw new Error('This time slot is already booked. Please choose another.');
         }
         
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: {
-                'Apikey': API_KEY,
-                'Authorization': `Bearer ${API_KEY}`,
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'Prefer': 'return=representation'
-            },
-            body: JSON.stringify(bookingData)
-        });
+        const { data, error } = await supabaseClient
+            .from('bookings')
+            .insert(bookingData)
+            .select()
+            .single();
         
-        console.log('Response Status:', response.status);
-        const text = await response.text();
-        console.log('Raw Response:', text);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}, Message: ${text || 'Unknown error'}`);
-        }
-        
-        let result = {};
-        if (text) {
-            try {
-                result = JSON.parse(text);
-                console.log('Parsed Response:', result);
-            } catch (e) {
-                console.warn('Non-JSON or empty response, proceeding as booking was saved:', text);
-            }
-        } else {
-            console.log('Empty response body, proceeding as booking was saved');
-        }
+        if (error) throw error;
         
         successMessage.style.display = 'block';
-        showReceipt(bookingData, result.id || 'N/A');
+        showReceipt(bookingData, data.id);
         await loadBookingsForDate(selectedDate);
+        await loadUserBookings();
         
-        document.getElementById('name').value = '';
-        document.getElementById('phone').value = '';
         selectedTime = null;
         document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
         updateBookingSummary();
@@ -297,17 +515,18 @@ async function handleBooking() {
 
 // Check for existing booking
 async function checkBookingExists(date, time) {
-    const response = await fetch(`${API_URL}?date=eq.${date}&time=eq.${time}&select=*`, {
-        method: 'GET',
-        headers: {
-            'Apikey': API_KEY,
-            'Authorization': `Bearer ${API_KEY}`,
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-        }
-    });
-    const bookings = await response.json();
-    return bookings.length > 0;
+    try {
+        const { data: bookings, error } = await supabaseClient
+            .from('bookings')
+            .select('*')
+            .eq('date', date)
+            .eq('time', time);
+        if (error) throw error;
+        return bookings.length > 0;
+    } catch (error) {
+        console.error('Check booking exists error:', error);
+        throw error;
+    }
 }
 
 // Show confirmation receipt
@@ -315,8 +534,8 @@ function showReceipt(bookingData, bookingId) {
     receiptMessage.innerHTML = `
         <h3>Booking Confirmation</h3>
         <p><strong>Booking ID:</strong> ${bookingId}</p>
-        <p><strong>Name:</strong> ${bookingData.name}</p>
-        <p><strong>Phone:</strong> ${bookingData.phone}</p>
+        <p><strong>Name:</strong> ${userProfile.name}</p>
+        <p><strong>Phone:</strong> ${userProfile.phone}</p>
         <p><strong>Date:</strong> ${bookingData.date}</p>
         <p><strong>Time:</strong> ${formatTime(bookingData.time)}</p>
         <p><strong>Duration:</strong> 1 Hour</p>
@@ -324,6 +543,64 @@ function showReceipt(bookingData, bookingId) {
         <p>Thank you for booking with Suthar Badminton!</p>
     `;
     receiptMessage.style.display = 'block';
+}
+
+// Handle booking cancellation
+async function handleCancelBooking(bookingId) {
+    if (!confirm('Are you sure you want to cancel this booking?')) return;
+    
+    try {
+        const { error } = await supabaseClient
+            .from('bookings')
+            .delete()
+            .eq('id', bookingId);
+        
+        if (error) throw error;
+        
+        alert('Booking cancelled successfully!');
+        await loadBookingsForDate(selectedDate || getTodayDate());
+        await loadUserBookings();
+    } catch (error) {
+        console.error('Cancel error:', error);
+        alert(`Failed to cancel booking: ${error.message}. Please try again.`);
+    }
+}
+
+// Handle booking modification
+async function handleModifyBooking(bookingId, currentDate, currentTime) {
+    if (!selectedDate || !selectedTime) {
+        alert('Please select a new date and time for the booking.');
+        return;
+    }
+    
+    if (selectedDate === currentDate && selectedTime === currentTime) {
+        alert('Please select a different date or time to modify the booking.');
+        return;
+    }
+    
+    try {
+        const exists = await checkBookingExists(selectedDate, selectedTime);
+        if (exists) {
+            throw new Error('The selected time slot is already booked. Please choose another.');
+        }
+        
+        const { error } = await supabaseClient
+            .from('bookings')
+            .update({ date: selectedDate, time: selectedTime })
+            .eq('id', bookingId);
+        
+        if (error) throw error;
+        
+        alert('Booking modified successfully!');
+        await loadBookingsForDate(selectedDate || getTodayDate());
+        await loadUserBookings();
+        selectedTime = null;
+        document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
+        updateBookingSummary();
+    } catch (error) {
+        console.error('Modify error:', error);
+        alert(`Failed to modify booking: ${error.message}. Please try again.`);
+    }
 }
 
 // Show loading state
