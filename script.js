@@ -3,8 +3,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 // Check if supabase is defined
 if (typeof supabase === 'undefined') {
-    console.error('Supabase client is not loaded. Ensure the Supabase CDN is included and loaded correctly.');
-    alert('Failed to initialize the application. Please check your internet connection and try again.');
+    createModal('error', 'Failed to initialize the application. Please check your internet connection and try again.');
     throw new Error('Supabase client is not defined');
 }
 
@@ -37,6 +36,87 @@ const updateProfileBtn = document.getElementById('update-profile-btn');
 let selectedDate = null;
 let selectedTime = null;
 let userProfile = null;
+
+// Modal creation function
+function createModal(type, message, callback) {
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+    `;
+
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: white;
+        padding: 2rem;
+        border-radius: 0.5rem;
+        max-width: 400px;
+        width: 90%;
+        text-align: center;
+    `;
+
+    let htmlContent = '';
+    if (type === 'error') {
+        htmlContent = `
+            <h3 style="color: #e74c3c; margin-bottom: 1rem;">Error</h3>
+            <p>${message}</p>
+            <button class="auth-btn" style="margin-top: 1rem;" onclick="this.closest('.modal').remove()">OK</button>
+        `;
+    } else if (type === 'confirm') {
+        htmlContent = `
+            <h3 style="margin-bottom: 1rem;">Confirm</h3>
+            <p>${message}</p>
+            <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
+                <button class="auth-btn confirm-yes">Yes</button>
+                <button class="auth-btn confirm-no">No</button>
+            </div>
+        `;
+    } else if (type === 'prompt') {
+        htmlContent = `
+            <h3 style="margin-bottom: 1rem;">Update Profile</h3>
+            <form id="profile-update-form">
+                <input type="text" id="modal-name" placeholder="Name" value="${message.name || ''}" style="margin-bottom: 0.5rem; width: 100%;" required>
+                <input type="tel" id="modal-phone" placeholder="Phone Number" value="${message.phone || ''}" style="margin-bottom: 0.5rem; width: 100%;" required>
+                <div style="margin-top: 1rem; display: flex; gap: 1rem; justify-content: center;">
+                    <button type="submit" class="auth-btn">Submit</button>
+                    <button type="button" class="auth-btn cancel" onclick="this.closest('.modal').remove()">Cancel</button>
+                </div>
+            </form>
+        `;
+    }
+
+    modalContent.innerHTML = htmlContent;
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+
+    if (type === 'confirm') {
+        modalContent.querySelector('.confirm-yes').addEventListener('click', () => {
+            modal.remove();
+            callback(true);
+        });
+        modalContent.querySelector('.confirm-no').addEventListener('click', () => {
+            modal.remove();
+            callback(false);
+        });
+    } else if (type === 'prompt') {
+        modalContent.querySelector('#profile-update-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = modalContent.querySelector('#modal-name').value.trim();
+            const phone = modalContent.querySelector('#modal-phone').value.trim();
+            modal.remove();
+            callback({ name, phone });
+        });
+    }
+}
 
 // Initialize the application
 async function init() {
@@ -77,9 +157,7 @@ async function checkAuthStatus() {
         }
     } catch (error) {
         console.error('Error checking auth status:', error);
-        showGuestInterface();
-        generateCalendar();
-        await loadBookingsForDate(getTodayDate());
+        createModal('error', 'Failed to check authentication status. Please try again.');
     }
 }
 
@@ -129,29 +207,25 @@ async function loadUserProfile(userId) {
         if (error) {
             if (error.code === 'PGRST116') {
                 const { data: { user } } = await supabaseClient.auth.getUser();
-                if (user.user_metadata) {
-                    const { error: insertError } = await supabaseClient
-                        .from('profiles')
-                        .insert({ 
-                            id: userId, 
-                            name: user.user_metadata.name || 'New User',
-                            phone: user.user_metadata.phone || ''
-                        })
-                        .select()
-                        .single();
-                    if (insertError) throw insertError;
-                    userProfile = { id: userId, name: user.user_metadata.name, phone: user.user_metadata.phone };
-                } else {
-                    const name = prompt('Please enter your name:') || 'New User';
-                    const phone = prompt('Please enter your phone number:') || '';
-                    const { error: insertError } = await supabaseClient
-                        .from('profiles')
-                        .insert({ id: userId, name, phone })
-                        .select()
-                        .single();
-                    if (insertError) throw insertError;
-                    userProfile = { id: userId, name, phone };
-                }
+                let name = user.user_metadata?.name || 'New User';
+                let phone = user.user_metadata?.phone || '';
+                
+                return new Promise((resolve) => {
+                    createModal('prompt', { name, phone }, async (result) => {
+                        if (result && result.name && result.phone) {
+                            const { error: insertError } = await supabaseClient
+                                .from('profiles')
+                                .insert({ id: userId, name: result.name, phone: result.phone })
+                                .select()
+                                .single();
+                            if (insertError) throw insertError;
+                            userProfile = { id: userId, name: result.name, phone: result.phone };
+                            resolve();
+                        } else {
+                            throw new Error('Profile creation cancelled');
+                        }
+                    });
+                });
             } else {
                 throw error;
             }
@@ -160,7 +234,7 @@ async function loadUserProfile(userId) {
         }
     } catch (error) {
         console.error('Error loading profile:', error);
-        alert('Failed to load or create profile. Please try again.');
+        createModal('error', 'Failed to load or create profile. Please try again.');
     }
 }
 
@@ -185,7 +259,7 @@ async function handleLogin(e) {
         await loadUserBookings();
     } catch (error) {
         console.error('Login error:', error);
-        alert(`Login failed: ${error.message}`);
+        createModal('error', `Login failed: ${error.message}`);
     }
 }
 
@@ -210,11 +284,11 @@ async function handleRegister(e) {
         });
         if (error) throw error;
         
-        alert('Registration successful! Please check your email to confirm your account.');
+        createModal('error', 'Registration successful! Please check your email to confirm your account.');
         toggleForm('login');
     } catch (error) {
         console.error('Registration error:', error);
-        alert(`Registration failed: ${error.message}`);
+        createModal('error', `Registration failed: ${error.message}`);
     }
 }
 
@@ -234,33 +308,32 @@ async function handleLogout() {
         userBookingsListEl.innerHTML = '';
     } catch (error) {
         console.error('Logout error:', error);
-        alert(`Logout failed: ${error.message}`);
+        createModal('error', `Logout failed: ${error.message}`);
     }
 }
 
 // Handle profile update
 async function handleUpdateProfile() {
-    const newName = prompt('Enter your name:', userProfile.name);
-    const newPhone = prompt('Enter your phone number:', userProfile.phone);
-    
-    if (newName && newPhone) {
-        try {
-            const { error } = await supabaseClient
-                .from('profiles')
-                .update({ name: newName.trim(), phone: newPhone.trim() })
-                .eq('id', userProfile.id);
-            if (error) throw error;
-            
-            userProfile.name = newName.trim();
-            userProfile.phone = newPhone.trim();
-            profile___text_content___ = userProfile.name;
-            profilePhone.textContent = userProfile.phone;
-            alert('Profile updated successfully!');
-        } catch (error) {
-            console.error('Profile update error:', error);
-            alert(`Profile update failed: ${error.message}`);
+    createModal('prompt', { name: userProfile.name, phone: userProfile.phone }, async (result) => {
+        if (result && result.name && result.phone) {
+            try {
+                const { error } = await supabaseClient
+                    .from('profiles')
+                    .update({ name: result.name, phone: result.phone })
+                    .eq('id', userProfile.id);
+                if (error) throw error;
+                
+                userProfile.name = result.name;
+                userProfile.phone = result.phone;
+                profileName.textContent = userProfile.name;
+                profilePhone.textContent = userProfile.phone;
+                createModal('error', 'Profile updated successfully!');
+            } catch (error) {
+                console.error('Profile update error:', error);
+                createModal('error', `Profile update failed: ${error.message}`);
+            }
         }
-    }
+    });
 }
 
 // Get today's date in YYYY-MM-DD format
@@ -465,12 +538,12 @@ function updateBookingSummary() {
 // Handle booking submission
 async function handleBooking() {
     if (!userProfile) {
-        alert('Please log in to book a slot.');
+        createModal('error', 'Please log in to book a slot.');
         return;
     }
     
     if (!selectedDate || !selectedTime) {
-        alert('Please select a date and time.');
+        createModal('error', 'Please select a date and time.');
         return;
     }
     
@@ -519,7 +592,7 @@ async function handleBooking() {
         
     } catch (error) {
         console.error('Booking error:', error);
-        alert(`Failed to save booking: ${error.message}. Please try again.`);
+        createModal('error', `Failed to save booking: ${error.message}. Please try again.`);
     } finally {
         bookBtn.textContent = originalBtnText;
         bookBtn.disabled = false;
@@ -560,34 +633,36 @@ function showReceipt(bookingData, bookingId) {
 
 // Handle booking cancellation
 async function handleCancelBooking(bookingId) {
-    if (!confirm('Are you sure you want to cancel this booking?')) return;
-    
-    try {
-        const { error } = await supabaseClient
-            .from('bookings')
-            .delete()
-            .eq('id', bookingId);
+    createModal('confirm', 'Are you sure you want to cancel this booking?', async (confirmed) => {
+        if (!confirmed) return;
         
-        if (error) throw error;
-        
-        alert('Booking cancelled successfully!');
-        await loadBookingsForDate(selectedDate || getTodayDate());
-        await loadUserBookings();
-    } catch (error) {
-        console.error('Cancel error:', error);
-        alert(`Failed to cancel booking: ${error.message}. Please try again.`);
-    }
+        try {
+            const { error } = await supabaseClient
+                .from('bookings')
+                .delete()
+                .eq('id', bookingId);
+            
+            if (error) throw error;
+            
+            createModal('error', 'Booking cancelled successfully!');
+            await loadBookingsForDate(selectedDate || getTodayDate());
+            await loadUserBookings();
+        } catch (error) {
+            console.error('Cancel error:', error);
+            createModal('error', `Failed to cancel booking: ${error.message}. Please try again.`);
+        }
+    });
 }
 
 // Handle booking modification
 async function handleModifyBooking(bookingId, currentDate, currentTime) {
     if (!selectedDate || !selectedTime) {
-        alert('Please select a new date and time for the booking.');
+        createModal('error', 'Please select a new date and time for the booking.');
         return;
     }
     
     if (selectedDate === currentDate && selectedTime === currentTime) {
-        alert('Please select a different date or time to modify the booking.');
+        createModal('error', 'Please select a different date or time to modify the booking.');
         return;
     }
     
@@ -604,7 +679,7 @@ async function handleModifyBooking(bookingId, currentDate, currentTime) {
         
         if (error) throw error;
         
-        alert('Booking modified successfully!');
+        createModal('error', 'Booking modified successfully!');
         await loadBookingsForDate(selectedDate || getTodayDate());
         await loadUserBookings();
         selectedTime = null;
@@ -612,7 +687,7 @@ async function handleModifyBooking(bookingId, currentDate, currentTime) {
         updateBookingSummary();
     } catch (error) {
         console.error('Modify error:', error);
-        alert(`Failed to modify booking: ${error.message}. Please try again.`);
+        createModal('error', `Failed to modify booking: ${error.message}. Please try again.`);
     }
 }
 

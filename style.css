@@ -394,3 +394,62 @@ footer {
     .auth-form input, .booking-form input { font-size: 0.9rem; }
     button, .auth-btn { font-size: 1rem; padding: 0.8rem; }
 }
+
+
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: #fff;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+}
+
+.modal input {
+    padding: 0.75rem;
+    border: 2px solid #e0e6ef;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: border-color 0.2s ease;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.modal input:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+.modal .auth-btn {
+    margin-top: 1rem;
+}
+
+.modal .confirm-yes {
+    background: #2ecc71;
+}
+
+.modal .confirm-yes:hover {
+    background: #27ae60;
+}
+
+.modal .confirm-no, .modal .cancel {
+    background: #e74c3c;
+}
+
+.modal .confirm-no:hover, .modal .cancel:hover {
+    background: #c0392b;
+}
