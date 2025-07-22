@@ -57,13 +57,12 @@ async function checkAuthStatus() {
         const { data: { user }, error } = await supabaseClient.auth.getUser();
         if (error) {
             if (error.name === 'AuthSessionMissingError') {
-                // No session exists, show guest interface
                 showGuestInterface();
                 generateCalendar();
                 await loadBookingsForDate(getTodayDate());
                 return;
             }
-            throw error; // Rethrow other errors
+            throw error;
         }
         if (user) {
             await loadUserProfile(user.id);
@@ -126,21 +125,32 @@ async function loadUserProfile(userId) {
             .select('*')
             .eq('id', userId)
             .single();
+            
         if (error) {
             if (error.code === 'PGRST116') {
-                // No profile exists, prompt user to create one
-                const name = prompt('Please enter your name:');
-                const phone = prompt('Please enter your phone number:');
-                if (name && phone) {
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                if (user.user_metadata) {
                     const { error: insertError } = await supabaseClient
                         .from('profiles')
-                        .insert({ id: userId, name: name.trim(), phone: phone.trim() })
+                        .insert({ 
+                            id: userId, 
+                            name: user.user_metadata.name || 'New User',
+                            phone: user.user_metadata.phone || ''
+                        })
                         .select()
                         .single();
                     if (insertError) throw insertError;
-                    userProfile = { id: userId, name: name.trim(), phone: phone.trim() };
+                    userProfile = { id: userId, name: user.user_metadata.name, phone: user.user_metadata.phone };
                 } else {
-                    throw new Error('Profile creation cancelled');
+                    const name = prompt('Please enter your name:') || 'New User';
+                    const phone = prompt('Please enter your phone number:') || '';
+                    const { error: insertError } = await supabaseClient
+                        .from('profiles')
+                        .insert({ id: userId, name, phone })
+                        .select()
+                        .single();
+                    if (insertError) throw insertError;
+                    userProfile = { id: userId, name, phone };
                 }
             } else {
                 throw error;
@@ -180,7 +190,6 @@ async function handleLogin(e) {
 }
 
 // Handle registration
-// In handleRegister function:
 async function handleRegister(e) {
     e.preventDefault();
     const name = document.getElementById('register-name').value.trim();
@@ -208,61 +217,6 @@ async function handleRegister(e) {
         alert(`Registration failed: ${error.message}`);
     }
 }
-
-// In checkAuthStatus function, modify the profile creation part:
-async function loadUserProfile(userId) {
-    try {
-        const { data, error } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .eq('id', userId)
-            .single();
-            
-        if (error) {
-            if (error.code === 'PGRST116') {
-                // No profile exists, check if we have user metadata
-                const { data: { user } } = await supabaseClient.auth.getUser();
-                
-                if (user.user_metadata) {
-                    // Create profile from user metadata
-                    const { error: insertError } = await supabaseClient
-                        .from('profiles')
-                        .insert({ 
-                            id: userId, 
-                            name: user.user_metadata.name || 'New User',
-                            phone: user.user_metadata.phone || ''
-                        })
-                        .select()
-                        .single();
-                        
-                    if (insertError) throw insertError;
-                    userProfile = { id: userId, name: user.user_metadata.name, phone: user.user_metadata.phone };
-                } else {
-                    // Fallback to prompt if no metadata
-                    const name = prompt('Please enter your name:') || 'New User';
-                    const phone = prompt('Please enter your phone number:') || '';
-                    
-                    const { error: insertError } = await supabaseClient
-                        .from('profiles')
-                        .insert({ id: userId, name, phone })
-                        .select()
-                        .single();
-                        
-                    if (insertError) throw insertError;
-                    userProfile = { id: userId, name, phone };
-                }
-            } else {
-                throw error;
-            }
-        } else {
-            userProfile = data;
-        }
-    } catch (error) {
-        console.error('Error loading profile:', error);
-        alert('Failed to load or create profile. Please try again.');
-    }
-}
-
 
 // Handle logout
 async function handleLogout() {
@@ -299,7 +253,7 @@ async function handleUpdateProfile() {
             
             userProfile.name = newName.trim();
             userProfile.phone = newPhone.trim();
-            profileName.textContent = userProfile.name;
+            profile___text_content___ = userProfile.name;
             profilePhone.textContent = userProfile.phone;
             alert('Profile updated successfully!');
         } catch (error) {
@@ -443,7 +397,7 @@ function formatTime(time) {
 }
 
 // Display bookings
-function displayBookings(bookings) {
+async function displayBookings(bookings) {
     bookingsListEl.innerHTML = '';
     
     if (bookings.length === 0) {
@@ -453,20 +407,20 @@ function displayBookings(bookings) {
     
     bookings.sort((a, b) => a.time.localeCompare(b.time));
     
-    bookings.forEach(async booking => {
+    for (const booking of bookings) {
         try {
             const { data: user } = await supabaseClient.from('profiles').select('name').eq('id', booking.user_id).single();
             const bookingEl = document.createElement('div');
             bookingEl.className = 'booking-item';
             bookingEl.innerHTML = `
-                <h4>${user ? user.name : 'Unknown'}</h4>
+                <h4>${user ? (booking.user_id === userProfile?.id ? 'You' : `Booked by ${user.name}`) : 'Unknown'}</h4>
                 <p>${formatTime(booking.time)} - 1 Hour</p>
             `;
             bookingsListEl.appendChild(bookingEl);
         } catch (error) {
             console.error('Error fetching user for booking:', error);
         }
-    });
+    }
 }
 
 // Display user's bookings with cancel/modify options
