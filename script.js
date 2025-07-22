@@ -263,7 +263,7 @@ async function handleLogin(e) {
     }
 }
 
-// Handle registration
+// In your handleRegister function:
 async function handleRegister(e) {
     e.preventDefault();
     const name = document.getElementById('register-name').value.trim();
@@ -272,19 +272,29 @@ async function handleRegister(e) {
     const password = document.getElementById('register-password').value.trim();
     
     try {
-        const { data: { user }, error } = await supabaseClient.auth.signUp({
+        // 1. Create auth user
+        const { data: { user }, error: authError } = await supabaseClient.auth.signUp({
             email,
             password,
             options: {
-                data: {
-                    name,
-                    phone
-                }
+                data: { name, phone }
             }
         });
-        if (error) throw error;
         
-        createModal('error', 'Registration successful! Please check your email to confirm your account.');
+        if (authError) throw authError;
+        
+        // 2. Create profile record
+        const { error: profileError } = await supabaseClient
+            .from('profiles')
+            .insert({ 
+                id: user.id, 
+                name: name,
+                phone: phone
+            });
+        
+        if (profileError) throw profileError;
+        
+        createModal('error', 'Registration successful! Please check your email.');
         toggleForm('login');
     } catch (error) {
         console.error('Registration error:', error);
@@ -355,32 +365,20 @@ async function loadBookingsForDate(date) {
     try {
         showLoading(bookingsListEl, 'Loading bookings...');
         
-        // 1. First get bookings
-        const { data: bookings, error: bookingsError } = await supabaseClient
+        // Fetch bookings with user names in a single query
+        const { data: bookings, error } = await supabaseClient
             .from('bookings')
-            .select('*')
+            .select(`
+                *,
+                profiles:user_id (name)
+            `)
             .eq('date', date);
         
-        if (bookingsError) throw bookingsError;
+        if (error) throw error;
         
-        // 2. Then get all related profiles
-        const userIds = bookings.map(b => b.user_id);
-        const { data: profiles, error: profilesError } = await supabaseClient
-            .from('profiles')
-            .select('id, name')
-            .in('id', [...new Set(userIds)]); // Remove duplicates
+        console.log('Bookings with profile data:', bookings); // Debug log
         
-        if (profilesError) throw profilesError;
-        
-        // 3. Combine the data
-        const bookingsWithProfiles = bookings.map(booking => ({
-            ...booking,
-            profile: profiles.find(p => p.id === booking.user_id) || null
-        }));
-        
-        console.log('Combined data:', bookingsWithProfiles);
-        
-        displayBookings(bookingsWithProfiles);
+        displayBookings(bookings);
         generateTimeSlots(bookings);
         selectDateOnCalendar(date);
     } catch (error) {
@@ -388,32 +386,6 @@ async function loadBookingsForDate(date) {
         showError(bookingsListEl, `Failed to load bookings: ${error.message}`);
     }
 }
-
-function displayBookings(bookings) {
-    bookingsListEl.innerHTML = '';
-    
-    if (bookings.length === 0) {
-        bookingsListEl.innerHTML = '<p>No bookings for this date yet</p>';
-        return;
-    }
-    
-    bookings.sort((a, b) => a.time.localeCompare(b.time));
-    
-    bookings.forEach(booking => {
-        const bookingEl = document.createElement('div');
-        bookingEl.className = 'booking-item';
-        
-        const userName = booking.profile?.name || 'Unknown';
-        const isCurrentUser = userProfile && booking.user_id === userProfile.id;
-        
-        bookingEl.innerHTML = `
-            <h4>${isCurrentUser ? 'You' : `Booked by ${userName}`}</h4>
-            <p>${formatTime(booking.time)} - 1 Hour</p>
-        `;
-        bookingsListEl.appendChild(bookingEl);
-    });
-}
-
 
 // Load user's bookings
 async function loadUserBookings() {
@@ -579,7 +551,8 @@ function updateBookingSummary() {
         `Time: ${selectedTime ? formatTime(selectedTime) : 'Not selected'}`;
 }
 
-// Handle booking submission
+
+
 async function handleBooking() {
     if (!userProfile) {
         createModal('error', 'Please log in to book a slot.');
@@ -590,56 +563,35 @@ async function handleBooking() {
         createModal('error', 'Please select a date and time.');
         return;
     }
-    
-    const bookingData = {
-        user_id: userProfile.id,
-        date: selectedDate,
-        time: selectedTime,
-        duration: '1 Hour',
-        status: 'Confirmed'
-    };
-    
-    const originalBtnText = bookBtn.textContent;
-    
+
     try {
-        bookBtn.innerHTML = '<span class="loading"></span> Processing...';
-        bookBtn.disabled = true;
-        
-        console.log('Sending booking data:', bookingData);
-        
-        const exists = await checkBookingExists(selectedDate, selectedTime);
-        if (exists) {
-            throw new Error('This time slot is already booked. Please choose another.');
-        }
-        
-        const { data, error } = await supabaseClient
+        const { error } = await supabaseClient
             .from('bookings')
-            .insert(bookingData)
-            .select()
-            .single();
+            .insert({ 
+                user_id: userProfile.id,
+                date: selectedDate,
+                time: selectedTime,
+                duration: '1 Hour',
+                status: 'Confirmed'  // Add this line
+            });
         
         if (error) throw error;
         
+        // Success handling...
         successMessage.style.display = 'block';
-        showReceipt(bookingData, data.id);
+        showReceipt({
+            date: selectedDate,
+            time: selectedTime,
+            duration: '1 Hour',
+            status: 'Confirmed'
+        });
+        
         await loadBookingsForDate(selectedDate);
         await loadUserBookings();
         
-        selectedTime = null;
-        document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
-        updateBookingSummary();
-        
-        setTimeout(() => {
-            successMessage.style.display = 'none';
-            receiptMessage.style.display = 'none';
-        }, 5000);
-        
     } catch (error) {
         console.error('Booking error:', error);
-        createModal('error', `Failed to save booking: ${error.message}. Please try again.`);
-    } finally {
-        bookBtn.textContent = originalBtnText;
-        bookBtn.disabled = false;
+        createModal('error', `Booking failed: ${error.message}`);
     }
 }
 
