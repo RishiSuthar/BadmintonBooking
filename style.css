@@ -216,10 +216,10 @@ h3 {
 }
 
 .slot.selected {
-    background: #3498db;
+    background: #3498db !important;
     color: #fff;
-    border-color: #3498db;
     font-weight: 600;
+    border: 3px solid rgb(0, 73, 141);
 }
 
 .slot.available {
