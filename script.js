@@ -1,6 +1,6 @@
 // Supabase Configuration
-const API_URL = 'https://wezgcqbagksqxyugqqad.supabase.co/rest/v1/bookings'; // Replace with your Supabase Project URL
-const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlemdjcWJhZ2tzcXh5dWdxcWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTUxNjksImV4cCI6MjA2ODY3MTE2OX0.AXnI7UgvWhnnAdZ5V9WGucdI4T-z2vTVAuRBU0R9qKQ'; // Replace with your Supabase Anon Public Key
+const API_URL = 'https://wezgcqbagksqxyugqqad.supabase.co/rest/v1/bookings';
+const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlemdjcWJhZ2tzcXh5dWdxcWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTUxNjksImV4cCI6MjA2ODY3MTE2OX0.AXnI7UgvWhnnAdZ5V9WGucdI4T-z2vTVAuRBU0R9qKQ';
 
 // DOM Elements
 const calendarEl = document.getElementById('calendar');
@@ -8,35 +8,18 @@ const timeSlotsEl = document.getElementById('time-slots');
 const bookingsListEl = document.getElementById('bookings-list');
 const bookBtn = document.getElementById('book-btn');
 const successMessage = document.getElementById('success-message');
-const tabs = document.querySelectorAll('.tab');
+const receiptMessage = document.getElementById('receipt-message');
 const currentYearEl = document.getElementById('current-year');
 
 // Selected booking details
 let selectedDate = null;
 let selectedTime = null;
-let selectedCourt = "Court 1";
 
 // Initialize the application
 async function init() {
-    // Set current year in footer
     currentYearEl.textContent = new Date().getFullYear();
-    
-    // Generate calendar and load today's bookings
     generateCalendar();
     await loadBookingsForDate(getTodayDate());
-    
-    // Tab selection
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            selectedCourt = tab.dataset.court;
-            updateBookingSummary();
-            generateTimeSlotsForSelectedDate();
-        });
-    });
-    
-    // Book button event
     bookBtn.addEventListener('click', handleBooking);
 }
 
@@ -82,15 +65,13 @@ async function loadBookingsForDate(date) {
     }
 }
 
-// Generate calendar days
+// Generate calendar for 14 days
 function generateCalendar() {
     calendarEl.innerHTML = '';
-    
     const today = new Date();
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     
-    // Add 7 days starting from today
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 14; i++) {
         const date = new Date();
         date.setDate(today.getDate() + i);
         
@@ -125,27 +106,23 @@ function selectDateOnCalendar(date) {
     });
 }
 
-// Generate time slots with actual bookings
+// Generate time slots from 6:30 PM to 9:30 PM
 function generateTimeSlots(bookings) {
     timeSlotsEl.innerHTML = '';
+    const timeSlots = ['18:30', '19:30', '20:30', '21:30'];
     
-    // Get bookings for selected court
-    const courtBookings = bookings.filter(b => b.court === selectedCourt);
-    
-    // Generate time slots from 8:00 AM to 10:00 PM
-    for (let hour = 8; hour <= 22; hour++) {
-        const time = `${hour}:00`;
-        const isBooked = courtBookings.some(b => b.time === time);
+    timeSlots.forEach(time => {
+        const isBooked = bookings.some(b => b.time === time);
         
         const slot = document.createElement('div');
         slot.className = 'slot';
         
         if (isBooked) {
             slot.classList.add('booked');
-            slot.textContent = `${time} - Booked`;
+            slot.textContent = `${formatTime(time)} - Booked`;
         } else {
             slot.classList.add('available');
-            slot.textContent = `${time} - Available`;
+            slot.textContent = `${formatTime(time)} - Available`;
             slot.addEventListener('click', () => {
                 document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
                 slot.classList.add('selected');
@@ -155,7 +132,15 @@ function generateTimeSlots(bookings) {
         }
         
         timeSlotsEl.appendChild(slot);
-    }
+    });
+}
+
+// Format time as 12-hour with AM/PM
+function formatTime(time) {
+    const [hour, minute] = time.split(':').map(Number);
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
 }
 
 // Generate time slots for currently selected date
@@ -194,23 +179,14 @@ function displayBookings(bookings) {
         return;
     }
     
-    // Sort by time
     bookings.sort((a, b) => a.time.localeCompare(b.time));
     
-    // Filter by selected court
-    const courtBookings = bookings.filter(b => b.court === selectedCourt);
-    
-    if (courtBookings.length === 0) {
-        bookingsListEl.innerHTML = `<p>No bookings for ${selectedCourt} on this date</p>`;
-        return;
-    }
-    
-    courtBookings.forEach(booking => {
+    bookings.forEach(booking => {
         const bookingEl = document.createElement('div');
         bookingEl.className = 'booking-item';
         bookingEl.innerHTML = `
             <h4>${booking.name}</h4>
-            <p>${booking.time} - ${booking.duration}</p>
+            <p>${formatTime(booking.time)} - 1 Hour</p>
             <p>Phone: ${booking.phone}</p>
         `;
         bookingsListEl.appendChild(bookingEl);
@@ -221,21 +197,15 @@ function displayBookings(bookings) {
 function updateBookingSummary() {
     document.getElementById('summary-date').textContent = 
         `Date: ${selectedDate || 'Not selected'}`;
-    
     document.getElementById('summary-time').textContent = 
-        `Time: ${selectedTime || 'Not selected'}`;
-    
-    document.getElementById('summary-court').textContent = 
-        `Court: ${selectedCourt || 'Not selected'}`;
+        `Time: ${selectedTime ? formatTime(selectedTime) : 'Not selected'}`;
 }
 
+// Handle booking submission
 async function handleBooking() {
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();
-    const email = document.getElementById('email').value.trim();
-    const duration = document.getElementById('duration').value;
     
-    // Validate inputs
     if (!name || !phone) {
         alert('Please enter your name and phone number');
         return;
@@ -246,16 +216,12 @@ async function handleBooking() {
         return;
     }
     
-    // Prepare booking data (exclude id, as it's auto-incremented)
     const bookingData = {
         name: name,
         phone: phone,
-        email: email,
         date: selectedDate,
         time: selectedTime,
-        court: selectedCourt,
-        duration: duration === '1' ? '1 Hour' : 
-                 duration === '1.5' ? '1.5 Hours' : '2 Hours',
+        duration: '1 Hour',
         status: 'Confirmed'
     };
     
@@ -265,9 +231,14 @@ async function handleBooking() {
         bookBtn.innerHTML = '<span class="loading"></span> Processing...';
         bookBtn.disabled = true;
         
-        console.log('Sending booking data:', bookingData); // Log request payload
+        console.log('Sending booking data:', bookingData);
         
-        // Send booking to Supabase
+        // Check for existing booking
+        const exists = await checkBookingExists(selectedDate, selectedTime);
+        if (exists) {
+            throw new Error('This time slot is already booked. Please choose another.');
+        }
+        
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: {
@@ -275,22 +246,19 @@ async function handleBooking() {
                 'Authorization': `Bearer ${API_KEY}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'Prefer': 'return=representation' // Ensure created record is returned
+                'Prefer': 'return=representation'
             },
             body: JSON.stringify(bookingData)
         });
         
-        console.log('Response Status:', response.status); // Log status
+        console.log('Response Status:', response.status);
+        const text = await response.text();
+        console.log('Raw Response:', text);
         
-        // Check response status
         if (!response.ok) {
-            const text = await response.text();
             throw new Error(`HTTP error! Status: ${response.status}, Message: ${text || 'Unknown error'}`);
         }
         
-        // Handle response body (allow empty body)
-        const text = await response.text();
-        console.log('Raw Response:', text); // Log raw response
         let result = {};
         if (text) {
             try {
@@ -303,24 +271,20 @@ async function handleBooking() {
             console.log('Empty response body, proceeding as booking was saved');
         }
         
-        // Show success message
         successMessage.style.display = 'block';
-        
-        // Refresh bookings
+        showReceipt(bookingData, result.id || 'N/A');
         await loadBookingsForDate(selectedDate);
         
-        // Reset form
         document.getElementById('name').value = '';
         document.getElementById('phone').value = '';
-        document.getElementById('email').value = '';
         selectedTime = null;
         document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
         updateBookingSummary();
         
-        // Hide success message after 3 seconds
         setTimeout(() => {
             successMessage.style.display = 'none';
-        }, 3000);
+            receiptMessage.style.display = 'none';
+        }, 5000);
         
     } catch (error) {
         console.error('Booking error:', error);
@@ -329,6 +293,37 @@ async function handleBooking() {
         bookBtn.textContent = originalBtnText;
         bookBtn.disabled = false;
     }
+}
+
+// Check for existing booking
+async function checkBookingExists(date, time) {
+    const response = await fetch(`${API_URL}?date=eq.${date}&time=eq.${time}&select=*`, {
+        method: 'GET',
+        headers: {
+            'Apikey': API_KEY,
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        }
+    });
+    const bookings = await response.json();
+    return bookings.length > 0;
+}
+
+// Show confirmation receipt
+function showReceipt(bookingData, bookingId) {
+    receiptMessage.innerHTML = `
+        <h3>Booking Confirmation</h3>
+        <p><strong>Booking ID:</strong> ${bookingId}</p>
+        <p><strong>Name:</strong> ${bookingData.name}</p>
+        <p><strong>Phone:</strong> ${bookingData.phone}</p>
+        <p><strong>Date:</strong> ${bookingData.date}</p>
+        <p><strong>Time:</strong> ${formatTime(bookingData.time)}</p>
+        <p><strong>Duration:</strong> 1 Hour</p>
+        <p><strong>Status:</strong> Confirmed</p>
+        <p>Thank you for booking with Suthar Badminton!</p>
+    `;
+    receiptMessage.style.display = 'block';
 }
 
 // Show loading state
