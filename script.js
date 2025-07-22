@@ -1,5 +1,6 @@
-// Configuration - Replace with your Google Apps Script URL
-const API_URL = 'https://script.google.com/macros/s/AKfycbzF_tHSTpk-3R10-Lnp5BD3k6NvxfYPbnZw_JVGv168uYDiexnZFSDOLF4gI7oCSF9J/exec';
+// Supabase Configuration
+const API_URL = 'https://wezgcqbagksqxyugqqad.supabase.co/rest/v1/bookings'; // Replace with your Supabase Project URL
+const API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlemdjcWJhZ2tzcXh5dWdxcWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTUxNjksImV4cCI6MjA2ODY3MTE2OX0.AXnI7UgvWhnnAdZ5V9WGucdI4T-z2vTVAuRBU0R9qKQ'; // Replace with your Supabase Anon Public Key
 
 // DOM Elements
 const calendarEl = document.getElementById('calendar');
@@ -57,33 +58,27 @@ function formatDate(date) {
 async function loadBookingsForDate(date) {
     try {
         showLoading(bookingsListEl, 'Loading bookings...');
-        
-        const response = await fetch(`${API_URL}?date=${date}`, {
+        const response = await fetch(`${API_URL}?date=eq.${date}&select=*`, {
             method: 'GET',
-            mode: 'cors',
             headers: {
+                'Apikey': API_KEY,
+                'Authorization': `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json',
                 'Accept': 'application/json'
             }
         });
         
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+            throw new Error(`HTTP error! Status: ${response.status}`);
         }
         
-        const data = await response.json();
-        
-        if (data.error) {
-            showError(bookingsListEl, data.error);
-            return;
-        }
-        
-        displayBookings(data.bookings);
-        generateTimeSlots(data.bookings);
+        const bookings = await response.json();
+        displayBookings(bookings);
+        generateTimeSlots(bookings);
         selectDateOnCalendar(date);
     } catch (error) {
         console.error('Fetch error:', error);
-        showError(bookingsListEl, 'Failed to load bookings. Please try again.');
+        showError(bookingsListEl, `Failed to load bookings: ${error.message}. Please try again.`);
     }
 }
 
@@ -135,12 +130,12 @@ function generateTimeSlots(bookings) {
     timeSlotsEl.innerHTML = '';
     
     // Get bookings for selected court
-    const courtBookings = bookings.filter(b => b.Court === selectedCourt);
+    const courtBookings = bookings.filter(b => b.court === selectedCourt);
     
     // Generate time slots from 8:00 AM to 10:00 PM
     for (let hour = 8; hour <= 22; hour++) {
         const time = `${hour}:00`;
-        const isBooked = courtBookings.some(b => b.Time === time);
+        const isBooked = courtBookings.some(b => b.time === time);
         
         const slot = document.createElement('div');
         slot.className = 'slot';
@@ -168,26 +163,25 @@ async function generateTimeSlotsForSelectedDate() {
     if (!selectedDate) return;
     
     try {
-        const response = await fetch(`${API_URL}?date=${selectedDate}`, {
+        const response = await fetch(`${API_URL}?date=eq.${selectedDate}&select=*`, {
             method: 'GET',
-            mode: 'cors',
             headers: {
+                'Apikey': API_KEY,
+                'Authorization': `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json',
                 'Accept': 'application/json'
             }
         });
         
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+            throw new Error(`HTTP error! Status: ${response.status}`);
         }
         
-        const data = await response.json();
-        
-        if (!data.error) {
-            generateTimeSlots(data.bookings);
-        }
+        const bookings = await response.json();
+        generateTimeSlots(bookings);
     } catch (error) {
         console.error('Error loading time slots:', error);
+        showError(timeSlotsEl, `Failed to load time slots: ${error.message}. Please try again.`);
     }
 }
 
@@ -201,10 +195,10 @@ function displayBookings(bookings) {
     }
     
     // Sort by time
-    bookings.sort((a, b) => a.Time.localeCompare(b.Time));
+    bookings.sort((a, b) => a.time.localeCompare(b.time));
     
     // Filter by selected court
-    const courtBookings = bookings.filter(b => b.Court === selectedCourt);
+    const courtBookings = bookings.filter(b => b.court === selectedCourt);
     
     if (courtBookings.length === 0) {
         bookingsListEl.innerHTML = `<p>No bookings for ${selectedCourt} on this date</p>`;
@@ -215,9 +209,9 @@ function displayBookings(bookings) {
         const bookingEl = document.createElement('div');
         bookingEl.className = 'booking-item';
         bookingEl.innerHTML = `
-            <h4>${booking.Name}</h4>
-            <p>${booking.Time} - ${booking.Duration}</p>
-            <p>Phone: ${booking.Phone}</p>
+            <h4>${booking.name}</h4>
+            <p>${booking.time} - ${booking.duration}</p>
+            <p>Phone: ${booking.phone}</p>
         `;
         bookingsListEl.appendChild(bookingEl);
     });
@@ -262,7 +256,8 @@ async function handleBooking() {
         time: selectedTime,
         court: selectedCourt,
         duration: duration === '1' ? '1 Hour' : 
-                 duration === '1.5' ? '1.5 Hours' : '2 Hours'
+                 duration === '1.5' ? '1.5 Hours' : '2 Hours',
+        status: 'Confirmed'
     };
     
     // Save original button text
@@ -273,14 +268,12 @@ async function handleBooking() {
         bookBtn.innerHTML = '<span class="loading"></span> Processing...';
         bookBtn.disabled = true;
         
-        // Log request data for debugging
-        console.log('Sending booking data:', bookingData);
-        
-        // Send booking to server
+        // Send booking to Supabase
         const response = await fetch(API_URL, {
             method: 'POST',
-            mode: 'cors',
             headers: {
+                'Apikey': API_KEY,
+                'Authorization': `Bearer ${API_KEY}`,
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
@@ -288,15 +281,10 @@ async function handleBooking() {
         });
         
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! Status: ${response.status}, Message: ${errorText}`);
+            throw new Error(`HTTP error! Status: ${response.status}`);
         }
         
         const result = await response.json();
-        
-        if (result.error) {
-            throw new Error(result.error);
-        }
         
         // Show success message
         successMessage.style.display = 'block';
