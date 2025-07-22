@@ -453,3 +453,118 @@ footer {
 .modal .confirm-no:hover, .modal .cancel:hover {
     background: #c0392b;
 }
+
+
+/* Add these styles */
+
+/* Guest players section */
+.guest-players {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #f5f6fa;
+    border-radius: 0.5rem;
+}
+
+.guest-name {
+    padding: 0.75rem;
+    border: 2px solid #e0e6ef;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    transition: border-color 0.2s ease;
+    width: 100%;
+    margin-bottom: 0.5rem;
+}
+
+.guest-name:focus {
+    border-color: #3498db;
+    outline: none;
+}
+
+#add-guest-btn {
+    background: #f1c40f;
+    color: #2c3e50;
+    margin-top: 0.5rem;
+}
+
+#add-guest-btn:hover {
+    background: #d4a805;
+}
+
+/* Rules modal */
+.rules-list {
+    margin: 1rem 0;
+    padding-left: 1.5rem;
+}
+
+.rules-list li {
+    margin-bottom: 0.5rem;
+}
+
+.rules-agreement {
+    margin: 1.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Admin panel styles */
+.admin-panel {
+    background: #fff;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+.admin-table th, .admin-table td {
+    padding: 0.75rem;
+    border: 1px solid #e0e6ef;
+    text-align: left;
+}
+
+.admin-table th {
+    background: #3498db;
+    color: white;
+}
+
+.admin-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin-top: 1.5rem;
+}
+
+.admin-form input, .admin-form select {
+    padding: 0.75rem;
+    border: 2px solid #e0e6ef;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+}
+
+#admin-link {
+    background: #9b59b6;
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#admin-link:hover {
+    background: #8e44ad;
+}
+
+.auth-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+}

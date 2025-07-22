@@ -19,6 +19,9 @@
                 </div>
             </div>
             <div class="auth-controls" id="auth-controls">
+                <a href="admin.html" id="admin-link" class="auth-btn">
+                    <i class="fas fa-cog"></i> Admin
+                </a>
                 <button id="login-btn" class="auth-btn">Login</button>
                 <button id="register-btn" class="auth-btn">Register</button>
                 <button id="logout-btn" class="auth-btn" style="display: none;">Logout</button>
@@ -35,9 +38,11 @@
                 </form>
             </div>
             
+
             <div class="auth-form" id="register-form" style="display: none;">
                 <h2><i class="fas fa-user-plus"></i> Register</h2>
                 <form id="register-form-element">
+                    <input type="text" id="register-code" placeholder="Registration Code (from admin)" required>
                     <input type="text" id="register-name" placeholder="Your Full Name" required>
                     <input type="tel" id="register-phone" placeholder="Phone Number" required>
                     <input type="email" id="register-email" placeholder="Email Address" required>
@@ -45,12 +50,21 @@
                     <button type="submit">Register</button>
                 </form>
             </div>
+
             
             <div class="panel" id="booking-panel" style="display: none;">
                 <h2><i class="fas fa-calendar-alt"></i> Select Date & Time</h2>
                 <div class="calendar" id="calendar"></div>
                 <h3>Available Time Slots (6:30 PM - 9:30 PM):</h3>
                 <div class="time-slots" id="time-slots"></div>
+                <div class="guest-players" id="guest-players" style="display: none;">
+                <h3>Add Guest Players (Optional)</h3>
+                <div id="guest-inputs">
+                    <input type="text" class="guest-name" placeholder="Guest Name">
+                </div>
+                <button type="button" id="add-guest-btn">+ Add Another Guest</button>
+                <p>Maximum 5 guests (6 players total including you)</p>
+                </div>
             </div>
             
             <div class="panel" id="user-panel" style="display: none;">
@@ -89,6 +103,24 @@
             <p>© 2025 Suthar Badminton. All rights reserved.</p>
         </footer>
     </div>
+
+    <div id="rules-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <h2>Court Rules</h2>
+            <ol class="rules-list">
+                <li>6 player limit per court</li>
+                <li>No loud talking</li>
+                <li>Fair rotation must be observed</li>
+                <li>Treat equipment with care</li>
+            </ol>
+            <div class="rules-agreement">
+                <input type="checkbox" id="agree-rules">
+                <label for="agree-rules">I acknowledge and agree to follow the court rules</label>
+            </div>
+            <button id="confirm-rules-btn" disabled>Continue to Booking</button>
+        </div>
+    </div>
+
 
     <script src="script.js"></script>
 </body>
