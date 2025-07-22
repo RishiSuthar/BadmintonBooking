@@ -354,21 +354,66 @@ function formatDate(date) {
 async function loadBookingsForDate(date) {
     try {
         showLoading(bookingsListEl, 'Loading bookings...');
-        const { data: bookings, error } = await supabaseClient
+        
+        // 1. First get bookings
+        const { data: bookings, error: bookingsError } = await supabaseClient
             .from('bookings')
             .select('*')
             .eq('date', date);
         
-        if (error) throw error;
+        if (bookingsError) throw bookingsError;
         
-        displayBookings(bookings);
+        // 2. Then get all related profiles
+        const userIds = bookings.map(b => b.user_id);
+        const { data: profiles, error: profilesError } = await supabaseClient
+            .from('profiles')
+            .select('id, name')
+            .in('id', [...new Set(userIds)]); // Remove duplicates
+        
+        if (profilesError) throw profilesError;
+        
+        // 3. Combine the data
+        const bookingsWithProfiles = bookings.map(booking => ({
+            ...booking,
+            profile: profiles.find(p => p.id === booking.user_id) || null
+        }));
+        
+        console.log('Combined data:', bookingsWithProfiles);
+        
+        displayBookings(bookingsWithProfiles);
         generateTimeSlots(bookings);
         selectDateOnCalendar(date);
     } catch (error) {
-        console.error('Fetch error:', error);
-        showError(bookingsListEl, `Failed to load bookings: ${error.message}. Please try again.`);
+        console.error('Error loading bookings:', error);
+        showError(bookingsListEl, `Failed to load bookings: ${error.message}`);
     }
 }
+
+function displayBookings(bookings) {
+    bookingsListEl.innerHTML = '';
+    
+    if (bookings.length === 0) {
+        bookingsListEl.innerHTML = '<p>No bookings for this date yet</p>';
+        return;
+    }
+    
+    bookings.sort((a, b) => a.time.localeCompare(b.time));
+    
+    bookings.forEach(booking => {
+        const bookingEl = document.createElement('div');
+        bookingEl.className = 'booking-item';
+        
+        const userName = booking.profile?.name || 'Unknown';
+        const isCurrentUser = userProfile && booking.user_id === userProfile.id;
+        
+        bookingEl.innerHTML = `
+            <h4>${isCurrentUser ? 'You' : `Booked by ${userName}`}</h4>
+            <p>${formatTime(booking.time)} - 1 Hour</p>
+        `;
+        bookingsListEl.appendChild(bookingEl);
+    });
+}
+
 
 // Load user's bookings
 async function loadUserBookings() {
@@ -469,9 +514,7 @@ function formatTime(time) {
     return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
 }
 
-// Display bookings
-// Display bookings
-async function displayBookings(bookings) {
+function displayBookings(bookings) {
     bookingsListEl.innerHTML = '';
     
     if (bookings.length === 0) {
@@ -481,28 +524,11 @@ async function displayBookings(bookings) {
     
     bookings.sort((a, b) => a.time.localeCompare(b.time));
     
-    // Get all user profiles at once for efficiency
-    const userIds = bookings.map(b => b.user_id);
-    const { data: users, error } = await supabaseClient
-        .from('profiles')
-        .select('id, name')
-        .in('id', userIds);
-    
-    if (error) {
-        console.error('Error fetching users:', error);
-        showError(bookingsListEl, 'Failed to load booking details.');
-        return;
-    }
-    
-    // Create a map of user IDs to names
-    const userMap = new Map();
-    users.forEach(user => userMap.set(user.id, user.name));
-    
-    for (const booking of bookings) {
+    bookings.forEach(booking => {
         const bookingEl = document.createElement('div');
         bookingEl.className = 'booking-item';
         
-        const userName = userMap.get(booking.user_id) || 'Unknown';
+        const userName = booking.profiles?.name || 'Unknown';
         const isCurrentUser = userProfile && booking.user_id === userProfile.id;
         
         bookingEl.innerHTML = `
@@ -510,8 +536,10 @@ async function displayBookings(bookings) {
             <p>${formatTime(booking.time)} - 1 Hour</p>
         `;
         bookingsListEl.appendChild(bookingEl);
-    }
+    });
 }
+
+
 // Display user's bookings with cancel/modify options
 function displayUserBookings(bookings) {
     userBookingsListEl.innerHTML = '';
