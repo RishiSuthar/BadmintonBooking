@@ -229,7 +229,6 @@ function updateBookingSummary() {
         `Court: ${selectedCourt || 'Not selected'}`;
 }
 
-// Handle booking submission
 async function handleBooking() {
     const name = document.getElementById('name').value.trim();
     const phone = document.getElementById('phone').value.trim();
@@ -247,7 +246,7 @@ async function handleBooking() {
         return;
     }
     
-    // Prepare booking data
+    // Prepare booking data (exclude id, as it's auto-incremented)
     const bookingData = {
         name: name,
         phone: phone,
@@ -268,6 +267,8 @@ async function handleBooking() {
         bookBtn.innerHTML = '<span class="loading"></span> Processing...';
         bookBtn.disabled = true;
         
+        console.log('Sending booking data:', bookingData); // Log request payload
+        
         // Send booking to Supabase
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -280,11 +281,24 @@ async function handleBooking() {
             body: JSON.stringify(bookingData)
         });
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+        console.log('Response Status:', response.status); // Log status
+        console.log('Response Headers:', [...response.headers]); // Log headers
+        
+        // Check if response body is empty
+        const text = await response.text(); // Get raw response as text
+        console.log('Raw Response:', text); // Log raw response
+        
+        // Try to parse as JSON
+        let result;
+        if (text) {
+            result = JSON.parse(text); // This is where the error occurs
+        } else {
+            throw new Error('Empty response body');
         }
         
-        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${result.message || 'Unknown error'}`);
+        }
         
         // Show success message
         successMessage.style.display = 'block';
