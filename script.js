@@ -120,7 +120,6 @@ function createModal(type, message, callback) {
 
 // Initialize the application
 async function init() {
-    currentYearEl.textContent = new Date().getFullYear();
     await checkAuthStatus();
     loginBtn.addEventListener('click', () => toggleForm('login'));
     registerBtn.addEventListener('click', () => toggleForm('register'));
