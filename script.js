@@ -259,11 +259,9 @@ async function handleBooking() {
         status: 'Confirmed'
     };
     
-    // Save original button text
     const originalBtnText = bookBtn.textContent;
     
     try {
-        // Show loading state
         bookBtn.innerHTML = '<span class="loading"></span> Processing...';
         bookBtn.disabled = true;
         
@@ -276,28 +274,33 @@ async function handleBooking() {
                 'Apikey': API_KEY,
                 'Authorization': `Bearer ${API_KEY}`,
                 'Content-Type': 'application/json',
-                'Accept': 'application/json'
+                'Accept': 'application/json',
+                'Prefer': 'return=representation' // Ensure created record is returned
             },
             body: JSON.stringify(bookingData)
         });
         
         console.log('Response Status:', response.status); // Log status
-        console.log('Response Headers:', [...response.headers]); // Log headers
         
-        // Check if response body is empty
-        const text = await response.text(); // Get raw response as text
-        console.log('Raw Response:', text); // Log raw response
-        
-        // Try to parse as JSON
-        let result;
-        if (text) {
-            result = JSON.parse(text); // This is where the error occurs
-        } else {
-            throw new Error('Empty response body');
+        // Check response status
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Message: ${text || 'Unknown error'}`);
         }
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}, Message: ${result.message || 'Unknown error'}`);
+        // Handle response body (allow empty body)
+        const text = await response.text();
+        console.log('Raw Response:', text); // Log raw response
+        let result = {};
+        if (text) {
+            try {
+                result = JSON.parse(text);
+                console.log('Parsed Response:', result);
+            } catch (e) {
+                console.warn('Non-JSON or empty response, proceeding as booking was saved:', text);
+            }
+        } else {
+            console.log('Empty response body, proceeding as booking was saved');
         }
         
         // Show success message
@@ -323,7 +326,6 @@ async function handleBooking() {
         console.error('Booking error:', error);
         alert(`Failed to save booking: ${error.message}. Please try again.`);
     } finally {
-        // Reset button state
         bookBtn.textContent = originalBtnText;
         bookBtn.disabled = false;
     }
