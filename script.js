@@ -180,6 +180,7 @@ async function handleLogin(e) {
 }
 
 // Handle registration
+// In handleRegister function:
 async function handleRegister(e) {
     e.preventDefault();
     const name = document.getElementById('register-name').value.trim();
@@ -190,20 +191,78 @@ async function handleRegister(e) {
     try {
         const { data: { user }, error } = await supabaseClient.auth.signUp({
             email,
-            password
+            password,
+            options: {
+                data: {
+                    name,
+                    phone
+                }
+            }
         });
         if (error) throw error;
         
-        // Store name and phone temporarily (e.g., in localStorage) until login
-        localStorage.setItem('pendingProfile', JSON.stringify({ name, phone, userId: user.id }));
-        
-        alert('Registration successful! Please check your email to confirm your account, then log in to complete your profile.');
+        alert('Registration successful! Please check your email to confirm your account.');
         toggleForm('login');
     } catch (error) {
         console.error('Registration error:', error);
         alert(`Registration failed: ${error.message}`);
     }
 }
+
+// In checkAuthStatus function, modify the profile creation part:
+async function loadUserProfile(userId) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+            
+        if (error) {
+            if (error.code === 'PGRST116') {
+                // No profile exists, check if we have user metadata
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                
+                if (user.user_metadata) {
+                    // Create profile from user metadata
+                    const { error: insertError } = await supabaseClient
+                        .from('profiles')
+                        .insert({ 
+                            id: userId, 
+                            name: user.user_metadata.name || 'New User',
+                            phone: user.user_metadata.phone || ''
+                        })
+                        .select()
+                        .single();
+                        
+                    if (insertError) throw insertError;
+                    userProfile = { id: userId, name: user.user_metadata.name, phone: user.user_metadata.phone };
+                } else {
+                    // Fallback to prompt if no metadata
+                    const name = prompt('Please enter your name:') || 'New User';
+                    const phone = prompt('Please enter your phone number:') || '';
+                    
+                    const { error: insertError } = await supabaseClient
+                        .from('profiles')
+                        .insert({ id: userId, name, phone })
+                        .select()
+                        .single();
+                        
+                    if (insertError) throw insertError;
+                    userProfile = { id: userId, name, phone };
+                }
+            } else {
+                throw error;
+            }
+        } else {
+            userProfile = data;
+        }
+    } catch (error) {
+        console.error('Error loading profile:', error);
+        alert('Failed to load or create profile. Please try again.');
+    }
+}
+
 
 // Handle logout
 async function handleLogout() {
