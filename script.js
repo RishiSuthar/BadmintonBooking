@@ -171,6 +171,7 @@ function addGuestPlayer() {
     }
 }
 
+
 async function checkAuthStatus() {
     try {
         // Get current session
@@ -191,16 +192,21 @@ async function checkAuthStatus() {
             console.error('Error getting user:', userError);
             await supabaseClient.auth.signOut();
             showGuestInterface();
+            generateCalendar();
+            await loadBookingsForDate(getTodayDate());
             return;
         }
 
         // Load profile
         const profile = await loadUserProfile(user.id);
         if (!profile) {
-            throw new Error('Profile not found');
+            console.error('Profile not found');
+            await supabaseClient.auth.signOut();
+            showGuestInterface();
+            generateCalendar();
+            await loadBookingsForDate(getTodayDate());
+            return;
         }
-        
-        userProfile = profile; // Make sure to set the userProfile
         
         // Check subscription status
         const { data: subscription, error: subError } = await supabaseClient
@@ -211,15 +217,19 @@ async function checkAuthStatus() {
             .gt('expires_at', new Date().toISOString())
             .single();
             
-       if (subError || !subscription) {
-            createModal('error', 'Your subscription has expired. Please renew to book courts.', async () => {
-                await supabaseClient.auth.signOut();
-                showGuestInterface();
-            });
+        if (subError || !subscription) {
+            console.error('No active subscription found or subscription expired');
+            createModal('error', 'Your subscription has expired or is inactive. Please contact an admin to renew.');
+            await supabaseClient.auth.signOut();
+            showGuestInterface();
+            generateCalendar();
+            await loadBookingsForDate(getTodayDate());
             return;
         }
         
-        showUserInterface(); // Make sure this is called
+        // If we reach here, user has a valid session and active subscription
+        userProfile = profile;
+        showUserInterface();
         generateCalendar();
         await loadBookingsForDate(getTodayDate());
         await loadUserBookings();
@@ -228,6 +238,8 @@ async function checkAuthStatus() {
         console.error('Error in checkAuthStatus:', error);
         await supabaseClient.auth.signOut();
         showGuestInterface();
+        generateCalendar();
+        await loadBookingsForDate(getTodayDate());
     }
 }
 
@@ -343,15 +355,34 @@ async function handleLogin(e) {
     try {
         showLoading(loginForm, 'Logging in...');
         
-        const { error } = await supabaseClient.auth.signInWithPassword({
+        const { data: { user }, error } = await supabaseClient.auth.signInWithPassword({
             email,
             password
         });
         
         if (error) throw error;
         
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        await loadUserProfile(user.id);
+        // Load profile
+        const profile = await loadUserProfile(user.id);
+        if (!profile) {
+            throw new Error('Profile not found');
+        }
+        
+        // Check subscription status
+        const { data: subscription, error: subError } = await supabaseClient
+            .from('user_subscriptions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .gt('expires_at', new Date().toISOString())
+            .single();
+            
+        if (subError || !subscription) {
+            await supabaseClient.auth.signOut();
+            throw new Error('Your subscription has expired or is inactive. Please contact an admin to renew.');
+        }
+        
+        userProfile = profile;
         showUserInterface();
         generateCalendar();
         await loadBookingsForDate(getTodayDate());
@@ -362,6 +393,7 @@ async function handleLogin(e) {
         createModal('error', `Login failed: ${error.message}`);
     } finally {
         loginForm.style.display = 'none';
+        hideLoading(loginForm);
     }
 }
 
