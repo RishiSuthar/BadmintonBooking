@@ -25,7 +25,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // 3. Update UI
         updateGreeting(profile.name);
         
-        // 4. Load Data
+        // 4. Add search functionality
+        addSearchFunctionality();
+        
+        // 5. Load Data
         await loadData();
         setupEventListeners();
 
@@ -36,11 +39,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// ========================
 // UI Functions
+// ========================
+
 function updateGreeting(name) {
     const el = document.getElementById('admin-greeting');
     if (el) el.textContent = `Welcome, ${name}`;
 }
+
+function addSearchFunctionality() {
+    const searchContainer = document.createElement('div');
+    searchContainer.className = 'search-container';
+    searchContainer.innerHTML = `
+        <h2><i class="fas fa-search"></i> Search Users</h2>
+        <div class="search-controls">
+            <input type="text" id="user-search" placeholder="Search by name or email">
+            <button id="search-users-btn" class="btn-action btn-view">
+                <i class="fas fa-search"></i> Search
+            </button>
+        </div>
+        <div id="search-results"></div>
+    `;
+    
+    document.querySelector('.admin-container').prepend(searchContainer);
+    
+    // Add event listeners
+    document.getElementById('search-users-btn').addEventListener('click', handleUserSearch);
+    document.getElementById('user-search').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleUserSearch();
+    });
+}
+
+// ========================
+// Data Loading Functions
+// ========================
 
 async function loadData() {
     try {
@@ -61,7 +94,6 @@ async function loadSubscriptions() {
     try {
         showLoading(tableElement);
         
-        // Get subscriptions with user data
         const { data: subscriptions, error } = await supabaseClient
             .from('user_subscriptions')
             .select(`
@@ -70,31 +102,15 @@ async function loadSubscriptions() {
                 created_at,
                 expires_at,
                 is_active,
-                user_id
+                duration_months,
+                user_id,
+                profiles:user_id (name, email)
             `)
             .order('created_at', { ascending: false });
 
         if (error) throw error;
 
-        // Get user details for each subscription
-        const subscriptionsWithUsers = await Promise.all(
-            subscriptions.map(async sub => {
-                if (!sub.user_id) return { ...sub, profiles: null };
-                
-                const { data: profile, error: profileError } = await supabaseClient
-                    .from('profiles')
-                    .select('name, email')
-                    .eq('id', sub.user_id)
-                    .single();
-                
-                return {
-                    ...sub,
-                    profiles: profileError ? null : profile
-                };
-            })
-        );
-
-        renderSubscriptionsTable(subscriptionsWithUsers);
+        renderSubscriptionsTable(subscriptions);
     } catch (error) {
         console.error('Subscriptions load error:', error);
         showError(tableElement, 'Failed to load subscriptions');
@@ -108,31 +124,26 @@ async function loadUsers() {
     try {
         showLoading(tableElement);
         
-        // Get users and their subscriptions separately
         const { data: users, error: usersError } = await supabaseClient
             .from('profiles')
-            .select('id, name, email, is_admin, created_at')
+            .select(`
+                id,
+                name,
+                email,
+                is_admin,
+                created_at,
+                user_subscriptions (
+                    id,
+                    is_active,
+                    expires_at,
+                    duration_months
+                )
+            `)
             .order('created_at', { ascending: false });
 
         if (usersError) throw usersError;
 
-        // Get subscriptions separately
-        const { data: subscriptions, error: subsError } = await supabaseClient
-            .from('user_subscriptions')
-            .select('user_id, is_active, expires_at');
-
-        if (subsError) throw subsError;
-
-        // Combine the data
-        const usersWithSubs = users.map(user => {
-            const userSubs = subscriptions.filter(sub => sub.user_id === user.id);
-            return {
-                ...user,
-                user_subscriptions: userSubs
-            };
-        });
-
-        renderUsersTable(usersWithSubs);
+        renderUsersTable(users);
     } catch (error) {
         console.error('User load error:', error);
         showError(tableElement, 'Failed to load users');
@@ -140,7 +151,6 @@ async function loadUsers() {
         hideLoading(tableElement);
     }
 }
-
 
 async function loadTodaysBookings() {
     const tableElement = document.querySelector('#bookings-table');
@@ -206,7 +216,10 @@ async function loadSystemStats() {
     }
 }
 
+// ========================
 // Rendering Functions
+// ========================
+
 function renderSubscriptionsTable(subscriptions) {
     const tbody = document.querySelector('#subscriptions-table tbody');
     if (!tbody) return;
@@ -228,6 +241,7 @@ function renderSubscriptionsTable(subscriptions) {
                 </td>
                 <td>${formatDate(sub.created_at)}</td>
                 <td>${formatDate(sub.expires_at)}</td>
+                <td>${sub.duration_months || 'N/A'} months</td>
                 <td>
                     <span class="status-badge ${statusClass}">
                         ${statusText}
@@ -239,6 +253,11 @@ function renderSubscriptionsTable(subscriptions) {
                             data-is-active="${sub.is_active}">
                         ${sub.is_active ? 'Deactivate' : 'Activate'}
                     </button>
+                    ${sub.profiles ? `
+                    <button class="btn-action btn-renew" 
+                            data-sub-id="${sub.id}">
+                        Renew
+                    </button>` : ''}
                 </td>
             </tr>
         `;
@@ -247,6 +266,10 @@ function renderSubscriptionsTable(subscriptions) {
     document.querySelectorAll('.btn-promote, .btn-demote').forEach(btn => {
         btn.addEventListener('click', handleSubscriptionToggle);
     });
+
+    document.querySelectorAll('.btn-renew').forEach(btn => {
+        btn.addEventListener('click', handleRenewSubscription);
+    });
 }
 
 function renderUsersTable(users) {
@@ -254,7 +277,7 @@ function renderUsersTable(users) {
     if (!tbody) return;
     
     tbody.innerHTML = users.map(user => {
-        const hasActiveSub = user.user_subscriptions && user.user_subscriptions.some(
+        const activeSub = user.user_subscriptions?.find(
             sub => sub.is_active && new Date(sub.expires_at) > new Date()
         );
         
@@ -268,15 +291,20 @@ function renderUsersTable(users) {
                     </span>
                 </td>
                 <td>
-                    <span class="status-badge ${hasActiveSub ? 'active' : 'inactive'}">
-                        ${hasActiveSub ? 'Active' : 'Inactive'}
-                    </span>
+                    ${activeSub ? 
+                        `${activeSub.duration_months || 'N/A'} months (expires ${formatDate(activeSub.expires_at)})` : 
+                        'No active subscription'}
                 </td>
                 <td>
                     <button class="btn-action ${user.is_admin ? 'btn-demote' : 'btn-promote'}" 
                             data-user-id="${user.id}">
                         ${user.is_admin ? 'Demote' : 'Promote'}
                     </button>
+                    ${activeSub ? `
+                    <button class="btn-action btn-renew" 
+                            data-sub-id="${activeSub.id}">
+                        Renew
+                    </button>` : ''}
                 </td>
             </tr>
         `;
@@ -284,6 +312,10 @@ function renderUsersTable(users) {
 
     document.querySelectorAll('.btn-promote, .btn-demote').forEach(btn => {
         btn.addEventListener('click', handleAdminToggle);
+    });
+
+    document.querySelectorAll('.btn-renew').forEach(btn => {
+        btn.addEventListener('click', handleRenewSubscription);
     });
 }
 
@@ -325,29 +357,40 @@ function updateStatsUI(stats) {
     if (activeBookingsEl) activeBookingsEl.textContent = stats.active_bookings;
 }
 
-// Event Handlers
+// ========================
+// Core Functionality
+// ========================
+
 async function generateRegistrationCode() {
     try {
+        // Prompt for number of months
+        const months = prompt("Enter number of months for subscription (1-12):", "1");
+        if (!months || isNaN(months) || months < 1 || months > 12) {
+            showToast('Please enter a valid number between 1-12', true);
+            return;
+        }
+
         // Generate a random 8-character alphanumeric code
         const code = generateRandomCode(8);
         
-        // Set expiration date to 30 days from now
+        // Set expiration date based on months input
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 30);
+        expiresAt.setMonth(expiresAt.getMonth() + parseInt(months));
         
         const { data, error } = await supabaseClient
             .from('user_subscriptions')
             .insert({
                 registration_code: code,
                 expires_at: expiresAt.toISOString(),
-                is_active: true
+                is_active: true,
+                duration_months: parseInt(months)
             })
             .select()
             .single();
             
         if (error) throw error;
         
-        showToast(`Generated new code: ${code}`);
+        showToast(`Generated new ${months}-month code: ${code}`);
         
         // Copy to clipboard
         try {
@@ -365,14 +408,147 @@ async function generateRegistrationCode() {
     }
 }
 
-function generateRandomCode(length) {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude confusing characters
-    let result = '';
-    for (let i = 0; i < length; i++) {
-        result += chars.charAt(Math.floor(Math.random() * chars.length));
+async function handleRenewSubscription(event) {
+    const subscriptionId = event.currentTarget.dataset.subId;
+    
+    const months = prompt("Enter number of months to renew (1-12):", "1");
+    if (!months || isNaN(months) || months < 1 || months > 12) {
+        showToast('Please enter a valid number between 1-12', true);
+        return;
     }
-    return result;
+    
+    try {
+        event.currentTarget.disabled = true;
+        event.currentTarget.innerHTML = '<span class="spinner"></span> Processing...';
+        
+        // Get current expiration date
+        const { data: currentSub, error: getError } = await supabaseClient
+            .from('user_subscriptions')
+            .select('expires_at')
+            .eq('id', subscriptionId)
+            .single();
+            
+        if (getError) throw getError;
+        
+        // Calculate new expiration date
+        let newExpiresAt = new Date(currentSub.expires_at);
+        if (new Date() > newExpiresAt) {
+            // If already expired, renew from today
+            newExpiresAt = new Date();
+        }
+        newExpiresAt.setMonth(newExpiresAt.getMonth() + parseInt(months));
+        
+        // Update subscription
+        const { error } = await supabaseClient
+            .from('user_subscriptions')
+            .update({
+                expires_at: newExpiresAt.toISOString(),
+                is_active: true,
+                duration_months: parseInt(months)
+            })
+            .eq('id', subscriptionId);
+            
+        if (error) throw error;
+        
+        showToast(`Subscription renewed for ${months} month(s)`);
+        await loadSubscriptions();
+        await loadUsers();
+    } catch (error) {
+        showToast('Renewal failed', true);
+        console.error('Renewal error:', error);
+    }
 }
+
+async function handleUserSearch() {
+    const query = document.getElementById('user-search').value.trim();
+    if (!query) {
+        showToast('Please enter a search term', true);
+        return;
+    }
+    
+    const resultsContainer = document.getElementById('search-results');
+    resultsContainer.innerHTML = '<p>Searching...</p>';
+    
+    try {
+        const { data: users, error } = await supabaseClient
+            .from('profiles')
+            .select(`
+                id,
+                name,
+                email,
+                user_subscriptions (
+                    id,
+                    registration_code,
+                    expires_at,
+                    is_active,
+                    duration_months
+                )
+            `)
+            .or(`name.ilike.%${query}%,email.ilike.%${query}%`);
+            
+        if (error) throw error;
+        
+        if (users.length === 0) {
+            resultsContainer.innerHTML = '<p>No users found</p>';
+            return;
+        }
+        
+        resultsContainer.innerHTML = `
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Subscription</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${users.map(user => `
+                        <tr>
+                            <td>${user.name || 'Unknown'}</td>
+                            <td>${user.email || ''}</td>
+                            <td>
+                                ${user.user_subscriptions && user.user_subscriptions.length > 0 ? 
+                                    `Expires: ${formatDate(user.user_subscriptions[0].expires_at)}` : 
+                                    'No subscription'}
+                            </td>
+                            <td>
+                                ${user.user_subscriptions && user.user_subscriptions.length > 0 ? 
+                                    `<span class="status-badge ${user.user_subscriptions[0].is_active ? 'active' : 'inactive'}">
+                                        ${user.user_subscriptions[0].is_active ? 'Active' : 'Inactive'}
+                                    </span>` : 
+                                    '<span class="status-badge inactive">None</span>'}
+                            </td>
+                            <td>
+                                ${user.user_subscriptions && user.user_subscriptions.length > 0 ? 
+                                    `<button class="btn-action btn-renew" 
+                                        data-sub-id="${user.user_subscriptions[0].id}">
+                                        Renew
+                                    </button>` : 
+                                    ''}
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+        
+        // Add renew button handlers
+        document.querySelectorAll('.btn-renew').forEach(btn => {
+            btn.addEventListener('click', handleRenewSubscription);
+        });
+        
+    } catch (error) {
+        console.error('Search error:', error);
+        resultsContainer.innerHTML = '<p class="error">Error searching users</p>';
+    }
+}
+
+// ========================
+// Event Handlers
+// ========================
 
 async function handleSubscriptionToggle(event) {
     const button = event.currentTarget;
@@ -463,9 +639,11 @@ function setupEventListeners() {
     document.getElementById('generate-code-btn').addEventListener('click', generateRegistrationCode);
 }
 
+// ========================
 // Utility Functions
+// ========================
+
 function showLoading(element) {
-    // Handle both selector strings and DOM elements
     if (typeof element === 'string') {
         element = document.querySelector(element);
     }
@@ -486,7 +664,6 @@ function showLoading(element) {
 }
 
 function hideLoading(element) {
-    // Handle both selector strings and DOM elements
     if (typeof element === 'string') {
         element = document.querySelector(element);
     }
@@ -495,7 +672,6 @@ function hideLoading(element) {
 }
 
 function showError(element, message) {
-    // Handle both selector strings and DOM elements
     if (typeof element === 'string') {
         element = document.querySelector(element);
     }
@@ -515,7 +691,6 @@ function showError(element, message) {
 }
 
 function showToast(message, isError = false) {
-    // Remove existing toasts
     document.querySelectorAll('.toast').forEach(toast => toast.remove());
     
     const toast = document.createElement('div');
@@ -530,6 +705,15 @@ function showToast(message, isError = false) {
         toast.classList.add('fade-out');
         setTimeout(() => toast.remove(), 300);
     }, 3000);
+}
+
+function generateRandomCode(length) {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let result = '';
+    for (let i = 0; i < length; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
 }
 
 function formatTime(timeString) {

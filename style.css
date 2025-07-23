@@ -600,3 +600,42 @@ code {
     border-radius: 0.25rem;
     font-family: monospace;
 }
+
+/* Search container styles */
+.search-container {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.search-controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+#user-search {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #e0e6ef;
+    border-radius: 5px;
+    font-size: 1rem;
+}
+
+#search-results {
+    margin-top: 15px;
+}
+
+#search-results table {
+    width: 100%;
+}
+
+.renew-btn {
+    background-color: #2ecc71 !important;
+}
+
+.renew-btn:hover {
+    background-color: #27ae60 !important;
+}
