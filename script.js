@@ -17,7 +17,6 @@ const userBookingsListEl = document.getElementById('user-bookings-list');
 const bookBtn = document.getElementById('book-btn');
 const successMessage = document.getElementById('success-message');
 const receiptMessage = document.getElementById('receipt-message');
-const currentYearEl = document.getElementById('current-year');
 const loginBtn = document.getElementById('login-btn');
 const registerBtn = document.getElementById('register-btn');
 const logoutBtn = document.getElementById('logout-btn');
@@ -122,13 +121,12 @@ function createModal(type, message, callback) {
 
 async function init() {
     try {
-
         supabaseClient.auth.onAuthStateChange((event, session) => {
-        console.log('Auth state changed:', event);
-        if (event === 'SIGNED_IN') {
-            checkAuthStatus();
-        } else if (event === 'SIGNED_OUT') {
-            showGuestInterface();
+            console.log('Auth state changed:', event);
+            if (event === 'SIGNED_IN') {
+                checkAuthStatus();
+            } else if (event === 'SIGNED_OUT') {
+                showGuestInterface();
             }
         });
 
@@ -140,7 +138,11 @@ async function init() {
         logoutBtn.addEventListener('click', handleLogout);
         loginFormElement.addEventListener('submit', handleLogin);
         registerFormElement.addEventListener('submit', handleRegister);
-        bookBtn.addEventListener('click', handleBooking);
+        bookBtn.addEventListener('click', () => {
+            showRulesModal(() => {
+                handleBooking();
+            });
+        });
         updateProfileBtn.addEventListener('click', handleUpdateProfile);
         
         document.getElementById('add-guest-btn')?.addEventListener('click', addGuestPlayer);
@@ -170,7 +172,6 @@ function addGuestPlayer() {
         console.error('Error adding guest:', error);
     }
 }
-
 
 async function checkAuthStatus() {
     try {
@@ -279,6 +280,7 @@ function toggleForm(formType) {
     bookingPanel.style.display = formType === 'none' ? 'block' : 'none';
     userPanel.style.display = formType === 'none' && userProfile ? 'block' : 'none';
 }
+
 async function loadUserProfile(userId) {
     try {
         // First get the user's email from auth
@@ -320,6 +322,7 @@ async function loadUserProfile(userId) {
         throw error;
     }
 }
+
 async function handleNewProfile(userId) {
     try {
         const { data: { user } } = await supabaseClient.auth.getUser();
@@ -347,6 +350,7 @@ async function handleNewProfile(userId) {
         throw error;
     }
 }
+
 async function handleLogin(e) {
     e.preventDefault();
     const email = document.getElementById('login-email').value.trim();
@@ -396,7 +400,6 @@ async function handleLogin(e) {
         hideLoading(loginForm);
     }
 }
-
 
 async function handleRegister(e) {
     e.preventDefault();
@@ -463,8 +466,6 @@ async function handleRegister(e) {
     }
 }
 
-
-// Handle logout
 async function handleLogout() {
     try {
         const { error } = await supabaseClient.auth.signOut();
@@ -484,7 +485,6 @@ async function handleLogout() {
     }
 }
 
-// Handle profile update
 async function handleUpdateProfile() {
     createModal('prompt', { name: userProfile.name, phone: userProfile.phone }, async (result) => {
         if (result && result.name && result.phone) {
@@ -508,13 +508,11 @@ async function handleUpdateProfile() {
     });
 }
 
-// Get today's date in YYYY-MM-DD format
 function getTodayDate() {
     const today = new Date();
     return formatDate(today);
 }
 
-// Format date as YYYY-MM-DD
 function formatDate(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -522,8 +520,6 @@ function formatDate(date) {
     return `${year}-${month}-${day}`;
 }
 
-
-// Update your displayBookings function:
 function displayBookings(bookings) {
     bookingsListEl.innerHTML = '';
     
@@ -539,22 +535,22 @@ function displayBookings(bookings) {
         bookingEl.className = 'booking-item';
         
         const isCurrentUser = userProfile && booking.user_id === userProfile.id;
+        const guestNames = booking.guest_names ? booking.guest_names.join(', ') : '';
+        const players = guestNames ? `${booking.user_name}, ${guestNames}` : booking.user_name;
         
         bookingEl.innerHTML = `
             <h4>${isCurrentUser ? 'You' : `Booked by ${booking.user_name}`}</h4>
             <p>${formatTime(booking.time)} - 1 Hour</p>
-            ${booking.guest_slots > 0 ? `<p>With ${booking.guest_slots} player(s)</p>` : ''}
+            <p>Players: ${players}</p>
         `;
         bookingsListEl.appendChild(bookingEl);
     });
 }
 
-
 async function loadBookingsForDate(date) {
     try {
         showLoading(bookingsListEl, 'Loading bookings...');
         
-        // Method 1: Manual join (recommended if relationship isn't detected)
         const { data: bookings, error: bookingsError } = await supabaseClient
             .from('bookings')
             .select('*')
@@ -589,7 +585,7 @@ async function loadBookingsForDate(date) {
         showError(bookingsListEl, `Failed to load bookings. Please try again.`);
     }
 }
-// Load user's bookings
+
 async function loadUserBookings() {
     if (!userProfile) return;
     try {
@@ -610,7 +606,6 @@ async function loadUserBookings() {
     }
 }
 
-// Generate calendar for 14 days
 function generateCalendar() {
     calendarEl.innerHTML = '';
     const today = new Date();
@@ -641,7 +636,6 @@ function generateCalendar() {
     }
 }
 
-// Select date on calendar
 function selectDateOnCalendar(date) {
     document.querySelectorAll('.day').forEach(day => {
         day.classList.remove('selected');
@@ -651,7 +645,6 @@ function selectDateOnCalendar(date) {
     });
 }
 
-// Generate time slots from 6:30 PM to 9:30 PM
 function generateTimeSlots(bookings) {
     timeSlotsEl.innerHTML = '';
     const timeSlots = ['18:30', '19:30', '20:30']; // Removed 21:30
@@ -691,7 +684,6 @@ function generateTimeSlots(bookings) {
     });
 }
 
-// Format time as 12-hour with AM/PM
 function formatTime(time) {
     const [hour, minute] = time.split(':').map(Number);
     const period = hour >= 12 ? 'PM' : 'AM';
@@ -699,8 +691,6 @@ function formatTime(time) {
     return `${hour12}:${minute.toString().padStart(2, '0')} ${period}`;
 }
 
-
-// Display user's bookings with cancel/modify options
 function displayUserBookings(bookings) {
     userBookingsListEl.innerHTML = '';
     
@@ -731,7 +721,6 @@ function displayUserBookings(bookings) {
     });
 }
 
-// Update booking summary
 function updateBookingSummary() {
     document.getElementById('summary-date').textContent = 
         `Date: ${selectedDate || 'Not selected'}`;
@@ -798,7 +787,7 @@ async function handleBooking() {
         if (error) throw error;
         
         successMessage.style.display = 'block';
-        showReceipt(booking);
+        showReceipt(booking, booking.id);
         
         await loadBookingsForDate(selectedDate);
         await loadUserBookings();
@@ -809,8 +798,6 @@ async function handleBooking() {
     }
 }
 
-
-// Check for existing booking
 async function checkBookingExists(date, time) {
     try {
         const { data: bookings, error } = await supabaseClient
@@ -826,7 +813,6 @@ async function checkBookingExists(date, time) {
     }
 }
 
-// Show confirmation receipt
 function showReceipt(bookingData, bookingId) {
     receiptMessage.innerHTML = `
         <h3>Booking Confirmation</h3>
@@ -842,27 +828,34 @@ function showReceipt(bookingData, bookingId) {
     receiptMessage.style.display = 'block';
 }
 
-
 function showRulesModal(callback) {
     const modal = document.getElementById('rules-modal');
     const agreeCheckbox = document.getElementById('agree-rules');
     const confirmBtn = document.getElementById('confirm-rules-btn');
     
+    // Reset checkbox state
+    agreeCheckbox.checked = false;
+    confirmBtn.disabled = true;
+    
     modal.style.display = 'flex';
     
-    agreeCheckbox.addEventListener('change', () => {
-        confirmBtn.disabled = !agreeCheckbox.checked;
+    // Remove any existing event listeners to prevent duplicates
+    const newCheckbox = agreeCheckbox.cloneNode(true);
+    agreeCheckbox.parentNode.replaceChild(newCheckbox, agreeCheckbox);
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    // Add new event listeners
+    newCheckbox.addEventListener('change', () => {
+        newConfirmBtn.disabled = !newCheckbox.checked;
     });
     
-    confirmBtn.addEventListener('click', () => {
+    newConfirmBtn.addEventListener('click', () => {
         modal.style.display = 'none';
         callback();
     });
 }
 
-
-
-// Handle booking cancellation
 async function handleCancelBooking(bookingId) {
     createModal('confirm', 'Are you sure you want to cancel this booking?', async (confirmed) => {
         if (!confirmed) return;
@@ -885,7 +878,6 @@ async function handleCancelBooking(bookingId) {
     });
 }
 
-// Handle booking modification
 async function handleModifyBooking(bookingId, currentDate, currentTime) {
     if (!selectedDate || !selectedTime) {
         createModal('error', 'Please select a new date and time for the booking.');
@@ -922,12 +914,14 @@ async function handleModifyBooking(bookingId, currentDate, currentTime) {
     }
 }
 
-// Show loading state
 function showLoading(element, message) {
     element.innerHTML = `<p><span class="loading"></span> ${message}</p>`;
 }
 
-// Show error message
+function hideLoading(element) {
+    element.innerHTML = '';
+}
+
 function showError(element, message) {
     element.innerHTML = `<p class="error">${message}</p>`;
 }

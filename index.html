@@ -27,7 +27,6 @@
                 <button id="logout-btn" class="auth-btn" style="display: none;">Logout</button>
             </div>
         </header>
-        
         <main id="main-content">
             <div class="auth-form" id="login-form" style="display: none;">
                 <h2><i class="fas fa-sign-in-alt"></i> Login</h2>
@@ -37,8 +36,6 @@
                     <button type="submit">Login</button>
                 </form>
             </div>
-            
-
             <div class="auth-form" id="register-form" style="display: none;">
                 <h2><i class="fas fa-user-plus"></i> Register</h2>
                 <form id="register-form-element">
@@ -50,23 +47,20 @@
                     <button type="submit">Register</button>
                 </form>
             </div>
-
-            
             <div class="panel" id="booking-panel" style="display: none;">
                 <h2><i class="fas fa-calendar-alt"></i> Select Date & Time</h2>
                 <div class="calendar" id="calendar"></div>
                 <h3>Available Time Slots (6:30 PM - 9:30 PM):</h3>
                 <div class="time-slots" id="time-slots"></div>
                 <div class="guest-players" id="guest-players" style="display: none;">
-                <h3>Add Guest Players (Optional)</h3>
-                <div id="guest-inputs">
-                    <input type="text" class="guest-name" placeholder="Player Name">
-                </div>
-                <button type="button" id="add-guest-btn">+ Add Another Player</button>
-                <p>Maximum 5 players (6 players total including you)</p>
+                    <h3>Add Guest Players (Optional)</h3>
+                    <div id="guest-inputs">
+                        <input type="text" class="guest-name" placeholder="Player Name">
+                    </div>
+                    <button type="button" id="add-guest-btn">+ Add Another Player</button>
+                    <p>Maximum 5 players (6 players total including you)</p>
                 </div>
             </div>
-            
             <div class="panel" id="user-panel" style="display: none;">
                 <h2><i class="fas fa-user"></i> Your Profile</h2>
                 <div class="profile-info">
@@ -74,7 +68,6 @@
                     <p><strong>Phone:</strong> <span id="profile-phone"></span></p>
                     <button id="update-profile-btn">Update Profile</button>
                 </div>
-                
                 <h2><i class="fas fa-bookmark"></i> Book Your Slot</h2>
                 <div class="booking-form">
                     <div class="booking-summary">
@@ -89,21 +82,17 @@
                     </div>
                     <div class="receipt-message" id="receipt-message"></div>
                 </div>
-                
                 <h2><i class="fas fa-list"></i> Your Bookings</h2>
                 <div class="bookings-list" id="user-bookings-list"></div>
-                
                 <h2><i class="fas fa-list"></i> Today's Bookings</h2>
                 <div class="bookings-list" id="bookings-list"></div>
             </div>
         </main>
-        
         <footer>
-            <p>SGSVM Badminton v2.1.2 | Proudly Designed & Built by <a href="https://about.me/rishisuthar" target="_blank">Dynamo</a></p>
+            <p>SGSVM Badminton v2.1.3 | Proudly Designed & Built by <a href="https://about.me/rishisuthar" target="_blank">Dynamo</a></p>
             <p>© 2025 Suthar Badminton. All rights reserved.</p>
         </footer>
     </div>
-
     <div id="rules-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <h2>Court Rules</h2>
@@ -120,8 +109,6 @@
             <button id="confirm-rules-btn" disabled>Continue to Booking</button>
         </div>
     </div>
-
-
     <script src="script.js"></script>
 </body>
 </html>
