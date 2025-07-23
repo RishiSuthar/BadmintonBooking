@@ -543,7 +543,7 @@ function displayBookings(bookings) {
         bookingEl.innerHTML = `
             <h4>${isCurrentUser ? 'You' : `Booked by ${booking.user_name}`}</h4>
             <p>${formatTime(booking.time)} - 1 Hour</p>
-            ${booking.guest_slots > 0 ? `<p>With ${booking.guest_slots} guest(s)</p>` : ''}
+            ${booking.guest_slots > 0 ? `<p>With ${booking.guest_slots} player(s)</p>` : ''}
         `;
         bookingsListEl.appendChild(bookingEl);
     });
@@ -681,7 +681,7 @@ function generateTimeSlots(bookings) {
                 if (userProfile) {
                     document.getElementById('guest-players').style.display = 'block';
                     document.getElementById('guest-inputs').innerHTML = 
-                        '<input type="text" class="guest-name" placeholder="Guest Name">';
+                        '<input type="text" class="guest-name" placeholder="Player Name">';
                     guestPlayers = [];
                 }
             });
