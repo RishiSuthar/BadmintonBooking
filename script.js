@@ -171,10 +171,9 @@ function addGuestPlayer() {
     }
 }
 
-
 async function checkAuthStatus() {
     try {
-        // First check if there's an existing session
+        // Get current session
         const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
         
         if (sessionError || !session) {
@@ -185,7 +184,7 @@ async function checkAuthStatus() {
             return;
         }
 
-        // Now get the user with the valid session
+        // Get user with the valid session
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
         
         if (userError) {
@@ -195,13 +194,28 @@ async function checkAuthStatus() {
             return;
         }
 
-        // Load profile with the authenticated user
+        // Load profile
         const profile = await loadUserProfile(user.id);
         if (!profile) {
             throw new Error('Profile not found');
         }
         
-        showUserInterface();
+        userProfile = profile; // Make sure to set the userProfile
+        
+        // Check subscription status
+        const { data: subscription, error: subError } = await supabaseClient
+            .from('user_subscriptions')
+            .select('*')
+            .eq('user_id', user.id)
+            .eq('is_active', true)
+            .gt('expires_at', new Date().toISOString())
+            .single();
+            
+        if (subError || !subscription) {
+            createModal('error', 'Your subscription has expired. Please renew to book courts.');
+        }
+        
+        showUserInterface(); // Make sure this is called
         generateCalendar();
         await loadBookingsForDate(getTodayDate());
         await loadUserBookings();
@@ -363,10 +377,11 @@ async function handleRegister(e) {
             .select('*')
             .eq('registration_code', code)
             .is('user_id', null)
+            .eq('is_active', true)
             .single();
             
         if (codeError || !subscription) {
-            throw new Error('Invalid or already used registration code');
+            throw new Error('Invalid, inactive, or already used registration code');
         }
         
         // 2. Create auth user
@@ -387,7 +402,7 @@ async function handleRegister(e) {
                 id: user.id, 
                 name,
                 phone,
-                email,  // Make sure to include email
+                email,
                 is_admin: false
             });
         
@@ -396,7 +411,10 @@ async function handleRegister(e) {
         // 4. Link subscription to user
         const { error: subError } = await supabaseClient
             .from('user_subscriptions')
-            .update({ user_id: user.id })
+            .update({ 
+                user_id: user.id,
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Extend by 30 days
+            })
             .eq('id', subscription.id);
             
         if (subError) throw subError;
@@ -408,6 +426,8 @@ async function handleRegister(e) {
         createModal('error', `Registration failed: ${error.message}`);
     }
 }
+
+
 // Handle logout
 async function handleLogout() {
     try {
