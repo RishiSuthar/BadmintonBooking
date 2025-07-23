@@ -211,8 +211,12 @@ async function checkAuthStatus() {
             .gt('expires_at', new Date().toISOString())
             .single();
             
-        if (subError || !subscription) {
-            createModal('error', 'Your subscription has expired. Please renew to book courts.');
+       if (subError || !subscription) {
+            createModal('error', 'Your subscription has expired. Please renew to book courts.', async () => {
+                await supabaseClient.auth.signOut();
+                showGuestInterface();
+            });
+            return;
         }
         
         showUserInterface(); // Make sure this is called
@@ -419,7 +423,7 @@ async function handleRegister(e) {
             
         if (subError) throw subError;
         
-        createModal('error', 'Registration successful! You can now login.');
+        createModal('error', 'Registration successful! Please check your email to verify before logging in');
         toggleForm('login');
     } catch (error) {
         console.error('Registration error:', error);
