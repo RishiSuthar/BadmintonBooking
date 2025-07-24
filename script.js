@@ -30,13 +30,18 @@ const userPanel = document.getElementById('user-panel');
 const profileName = document.getElementById('profile-name');
 const profilePhone = document.getElementById('profile-phone');
 const updateProfileBtn = document.getElementById('update-profile-btn');
+const prevMonthBtn = document.getElementById('prev-month');
+const nextMonthBtn = document.getElementById('next-month');
+const currentMonthEl = document.getElementById('current-month');
 
 // Selected booking details
 let selectedDate = null;
 let selectedTime = null;
 let userProfile = null;
-let guestPlayers = [];
 let maxPlayers = 6;
+let availableGuestSlots = maxPlayers - 1; // Default to max - 1 for user
+let currentMonth = new Date().getMonth();
+let currentYear = new Date().getFullYear();
 
 // Modal creation function
 function createModal(type, message, callback) {
@@ -144,7 +149,8 @@ async function init() {
             });
         });
         updateProfileBtn.addEventListener('click', handleUpdateProfile);
-        
+        prevMonthBtn.addEventListener('click', () => changeMonth(-1));
+        nextMonthBtn.addEventListener('click', () => changeMonth(1));
         document.getElementById('add-guest-btn')?.addEventListener('click', addGuestPlayer);
         
     } catch (error) {
@@ -158,15 +164,15 @@ function addGuestPlayer() {
         const guestInputs = document.getElementById('guest-inputs');
         const currentGuests = guestInputs.querySelectorAll('.guest-name').length;
         
-        if (currentGuests >= maxPlayers - 1) {
-            createModal('error', `Maximum ${maxPlayers - 1} guests allowed (${maxPlayers} players total).`);
+        if (currentGuests >= availableGuestSlots) {
+            createModal('error', `Only ${availableGuestSlots} guest slots available for this time.`);
             return;
         }
         
         const newInput = document.createElement('input');
         newInput.type = 'text';
         newInput.className = 'guest-name';
-        newInput.placeholder = 'Guest Name';
+        newInput.placeholder = 'Guest Player Name';
         guestInputs.appendChild(newInput);
     } catch (error) {
         console.error('Error adding guest:', error);
@@ -253,6 +259,7 @@ function showGuestInterface() {
     userPanel.style.display = 'none';
     loginForm.style.display = 'none';
     registerForm.style.display = 'none';
+    document.getElementById('admin-link').style.display = 'none'; // Hide admin link for guests
 }
 
 // Show user interface (booking + dashboard)
@@ -264,9 +271,8 @@ function showUserInterface() {
     userPanel.style.display = 'block';
     loginForm.style.display = 'none';
     registerForm.style.display = 'none';
-    if (userProfile?.is_admin) {
-        document.getElementById('admin-link').style.display = 'inline-block';
-    }
+    // Show admin link only if user is admin
+    document.getElementById('admin-link').style.display = userProfile?.is_admin ? 'inline-block' : 'none';
     if (userProfile) {
         profileName.textContent = userProfile.name;
         profilePhone.textContent = userProfile.phone;
@@ -609,22 +615,43 @@ async function loadUserBookings() {
 function generateCalendar() {
     calendarEl.innerHTML = '';
     const today = new Date();
+    const maxDate = new Date();
+    maxDate.setMonth(today.getMonth() + 3); // Allow booking up to 3 months in advance
+
+    const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
+    const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
+    const daysInMonth = lastDayOfMonth.getDate();
+    const firstDayIndex = firstDayOfMonth.getDay();
+
+    currentMonthEl.textContent = `${firstDayOfMonth.toLocaleString('default', { month: 'long' })} ${currentYear}`;
+
+    // Disable next month button if at max date
+    nextMonthBtn.disabled = (currentYear === maxDate.getFullYear() && currentMonth === maxDate.getMonth());
+
+    // Add weekday headers
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    
-    for (let i = 0; i < 14; i++) {
-        const date = new Date();
-        date.setDate(today.getDate() + i);
-        
+    days.forEach(day => {
+        const dayHeader = document.createElement('div');
+        dayHeader.className = 'day-header';
+        dayHeader.textContent = day;
+        calendarEl.appendChild(dayHeader);
+    });
+
+    // Add empty cells for days before the first day of the month
+    for (let i = 0; i < firstDayIndex; i++) {
+        const emptyDay = document.createElement('div');
+        emptyDay.className = 'day empty';
+        calendarEl.appendChild(emptyDay);
+    }
+
+    // Add days of the month
+    for (let i = 1; i <= daysInMonth; i++) {
+        const date = new Date(currentYear, currentMonth, i);
         const day = document.createElement('div');
         day.className = 'day';
-        if (i === 0) day.classList.add('today');
+        if (date.toDateString() === today.toDateString()) day.classList.add('today');
         
-        day.innerHTML = `
-            <div>${days[date.getDay()]}</div>
-            <div>${date.getDate()}</div>
-            <div>${date.toLocaleString('default', { month: 'short' })}</div>
-        `;
-        
+        day.innerHTML = `<div>${i}</div>`;
         day.dataset.date = formatDate(date);
         day.addEventListener('click', async () => {
             selectedDate = day.dataset.date;
@@ -634,6 +661,18 @@ function generateCalendar() {
         
         calendarEl.appendChild(day);
     }
+}
+
+function changeMonth(delta) {
+    currentMonth += delta;
+    if (currentMonth < 0) {
+        currentMonth = 11;
+        currentYear -= 1;
+    } else if (currentMonth > 11) {
+        currentMonth = 0;
+        currentYear += 1;
+    }
+    generateCalendar();
 }
 
 function selectDateOnCalendar(date) {
@@ -647,7 +686,7 @@ function selectDateOnCalendar(date) {
 
 function generateTimeSlots(bookings) {
     timeSlotsEl.innerHTML = '';
-    const timeSlots = ['18:30', '19:30', '20:30']; // Removed 21:30
+    const timeSlots = ['18:30', '19:30', '20:30'];
     
     timeSlots.forEach(time => {
         const slotBookings = bookings.filter(b => b.time === time);
@@ -664,18 +703,21 @@ function generateTimeSlots(bookings) {
         } else {
             slot.classList.add('available');
             slot.textContent = `${formatTime(time)} - Available (${maxPlayers - bookedSlots} slots left)`;
+            slot.dataset.availableSlots = maxPlayers - bookedSlots - 1; // -1 for user
             slot.addEventListener('click', () => {
                 document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
                 slot.classList.add('selected');
                 selectedTime = time;
+                availableGuestSlots = parseInt(slot.dataset.availableSlots);
                 updateBookingSummary();
                 
                 // Show guest players section if user is logged in
                 if (userProfile) {
                     document.getElementById('guest-players').style.display = 'block';
-                    document.getElementById('guest-inputs').innerHTML = 
-                        '<input type="text" class="guest-name" placeholder="Player Name">';
-                    guestPlayers = [];
+                    const guestInputs = document.getElementById('guest-inputs');
+                    guestInputs.innerHTML = availableGuestSlots > 0 
+                        ? '<input type="text" class="guest-name" placeholder="Guest Player Name">'
+                        : '<p>No additional guest slots available.</p>';
                 }
             });
         }
@@ -741,13 +783,13 @@ async function handleBooking() {
 
     // Get guest names
     const guestInputs = document.querySelectorAll('.guest-name');
-    const guestPlayers = Array.from(guestInputs)
+    const guestNames = Array.from(guestInputs)
         .map(input => input.value.trim())
         .filter(name => name !== '');
         
-    const totalPlayers = 1 + guestPlayers.length;
+    const totalPlayers = 1 + guestNames.length;
 
-    if (totalPlayers > 6) {
+    if (totalPlayers > maxPlayers) {
         createModal('error', 'Maximum 6 players allowed (including yourself).');
         return;
     }
@@ -765,8 +807,8 @@ async function handleBooking() {
         const bookedSlots = existingBookings.reduce((total, booking) => 
             total + 1 + (booking.guest_slots || 0), 0);
             
-        if (bookedSlots + totalPlayers > 6) {
-            throw new Error(`Only ${6 - bookedSlots} slots available for this time.`);
+        if (bookedSlots + totalPlayers > maxPlayers) {
+            throw new Error(`Only ${maxPlayers - bookedSlots} slots available for this time.`);
         }
 
         // Create the booking
@@ -778,8 +820,8 @@ async function handleBooking() {
                 time: selectedTime,
                 duration: '1 Hour',
                 status: 'Confirmed',
-                guest_slots: guestPlayers.length,
-                guest_names: guestPlayers.length > 0 ? guestPlayers : null
+                guest_slots: guestNames.length,
+                guest_names: guestNames.length > 0 ? guestNames : null
             })
             .select()
             .single();
@@ -930,17 +972,5 @@ function showError(element, message) {
 document.addEventListener('DOMContentLoaded', init);
 
 document.getElementById('add-guest-btn')?.addEventListener('click', () => {
-    const guestInputs = document.getElementById('guest-inputs');
-    const currentGuests = guestInputs.querySelectorAll('.guest-name').length;
-    
-    if (currentGuests >= maxPlayers - 1) {
-        createModal('error', `Maximum ${maxPlayers - 1} guests allowed (${maxPlayers} players total).`);
-        return;
-    }
-    
-    const newInput = document.createElement('input');
-    newInput.type = 'text';
-    newInput.className = 'guest-name';
-    newInput.placeholder = 'Guest Name';
-    guestInputs.appendChild(newInput);
+    addGuestPlayer();
 });
