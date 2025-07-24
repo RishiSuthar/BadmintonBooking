@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Suthar Badminton - Court Booking</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -12,15 +14,17 @@
     <div class="container">
         <header>
             <div class="logo">
-                <i class="fa-solid fa-stopwatch-20"></i>
                 <div>
                     <h1>Suthar Badminton</h1>
                     <p class="tagline">Book your court anytime, anywhere</p>
                 </div>
             </div>
             <div class="auth-controls" id="auth-controls">
+                <button id="profile-btn" class="profile-btn" style="display: none;">
+                    <i class="fas fa-user"></i> Profile
+                </button>
                 <a href="admin.html" id="admin-link" class="auth-btn" style="display: none;">
-                    <i class="fas fa-cog"></i> Admin
+                    <i class="fas fa-cog"></i>
                 </a>
                 <button id="login-btn" class="auth-btn">Login</button>
                 <button id="register-btn" class="auth-btn">Register</button>
@@ -68,12 +72,6 @@
                 </div>
             </div>
             <div class="panel" id="user-panel" style="display: none;">
-                <h2><i class="fas fa-user"></i> Your Profile</h2>
-                <div class="profile-info">
-                    <p><strong>Name:</strong> <span id="profile-name"></span></p>
-                    <p><strong>Phone:</strong> <span id="profile-phone"></span></p>
-                    <button id="update-profile-btn">Update Profile</button>
-                </div>
                 <h2><i class="fas fa-bookmark"></i> Book Your Slot</h2>
                 <div class="booking-form">
                     <div class="booking-summary">
@@ -88,14 +86,14 @@
                     </div>
                     <div class="receipt-message" id="receipt-message"></div>
                 </div>
-                <h2><i class="fas fa-list"></i> Your Bookings</h2>
+                <h2 style="padding-top: 35px;"><i class="fas fa-list"></i> Your Bookings</h2>
                 <div class="bookings-list" id="user-bookings-list"></div>
-                <h2><i class="fas fa-list"></i> Today's Bookings</h2>
+                <h2 style="padding-top: 35px;"><i class="fas fa-list"></i> Today's Bookings</h2>
                 <div class="bookings-list" id="bookings-list"></div>
             </div>
         </main>
         <footer>
-            <p>SGSVM Badminton v3.0.0 | Proudly Designed & Built by <a href="https://about.me/rishisuthar" target="_blank">Dynamo</a></p>
+            <p>SGSVM Badminton v3.0.1 | Proudly Designed & Built by <a href="https://about.me/rishisuthar" target="_blank">Dynamo</a></p>
             <p>© 2025 Suthar Badminton. All rights reserved.</p>
         </footer>
     </div>

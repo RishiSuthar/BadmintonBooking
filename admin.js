@@ -1,19 +1,15 @@
-// Initialize Supabase client
 const supabaseClient = supabase.createClient(
     'https://wezgcqbagksqxyugqqad.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlemdjcWJhZ2tzcXh5dWdxcWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTUxNjksImV4cCI6MjA2ODY3MTE2OX0.AXnI7UgvWhnnAdZ5V9WGucdI4T-z2vTVAuRBU0R9qKQ'
 );
 
-// Main initialization
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         console.log('[Admin] Initializing...');
         
-        // 1. Verify Authentication
         const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
         if (authError || !user) throw new Error('Authentication failed');
 
-        // 2. Verify Admin Status
         const { data: profile, error: profileError } = await supabaseClient
             .from('profiles')
             .select('is_admin, name')
@@ -22,13 +18,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             
         if (profileError || !profile?.is_admin) throw new Error('Admin privileges required');
 
-        // 3. Update UI
         updateGreeting(profile.name);
-        
-        // 4. Add search functionality
         addSearchFunctionality();
-        
-        // 5. Load Data
         await loadData();
         setupEventListeners();
 
@@ -38,10 +29,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(redirectToLogin, 2000);
     }
 });
-
-// ========================
-// UI Functions
-// ========================
 
 function updateGreeting(name) {
     const el = document.getElementById('admin-greeting');
@@ -64,16 +51,11 @@ function addSearchFunctionality() {
     
     document.querySelector('.admin-container').prepend(searchContainer);
     
-    // Add event listeners
     document.getElementById('search-users-btn').addEventListener('click', handleUserSearch);
     document.getElementById('user-search').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') handleUserSearch();
     });
 }
-
-// ========================
-// Data Loading Functions
-// ========================
 
 async function loadData() {
     try {
@@ -182,19 +164,16 @@ async function loadTodaysBookings() {
 
 async function loadSystemStats() {
     try {
-        // Get total users count
         const { count: totalUsers } = await supabaseClient
             .from('profiles')
             .select('*', { count: 'exact', head: true });
         
-        // Get active subscriptions count
         const { count: activeSubscriptions } = await supabaseClient
             .from('user_subscriptions')
             .select('*', { count: 'exact', head: true })
             .eq('is_active', true)
             .gt('expires_at', new Date().toISOString());
         
-        // Get today's bookings count
         const today = new Date().toISOString().split('T')[0];
         const { count: activeBookings } = await supabaseClient
             .from('bookings')
@@ -215,10 +194,6 @@ async function loadSystemStats() {
         });
     }
 }
-
-// ========================
-// Rendering Functions
-// ========================
 
 function renderSubscriptionsTable(subscriptions) {
     const tbody = document.querySelector('#subscriptions-table tbody');
@@ -357,23 +332,16 @@ function updateStatsUI(stats) {
     if (activeBookingsEl) activeBookingsEl.textContent = stats.active_bookings;
 }
 
-// ========================
-// Core Functionality
-// ========================
-
 async function generateRegistrationCode() {
     try {
-        // Prompt for number of months
         const months = prompt("Enter number of months for subscription (1-12):", "1");
         if (!months || isNaN(months) || months < 1 || months > 12) {
             showToast('Please enter a valid number between 1-12', true);
             return;
         }
 
-        // Generate a random 8-character alphanumeric code
         const code = generateRandomCode(8);
         
-        // Set expiration date based on months input
         const expiresAt = new Date();
         expiresAt.setMonth(expiresAt.getMonth() + parseInt(months));
         
@@ -392,7 +360,6 @@ async function generateRegistrationCode() {
         
         showToast(`Generated new ${months}-month code: ${code}`);
         
-        // Copy to clipboard
         try {
             await navigator.clipboard.writeText(code);
             showToast('Code copied to clipboard!');
@@ -421,7 +388,6 @@ async function handleRenewSubscription(event) {
         event.currentTarget.disabled = true;
         event.currentTarget.innerHTML = '<span class="spinner"></span> Processing...';
         
-        // Get current expiration date
         const { data: currentSub, error: getError } = await supabaseClient
             .from('user_subscriptions')
             .select('expires_at')
@@ -430,15 +396,12 @@ async function handleRenewSubscription(event) {
             
         if (getError) throw getError;
         
-        // Calculate new expiration date
         let newExpiresAt = new Date(currentSub.expires_at);
         if (new Date() > newExpiresAt) {
-            // If already expired, renew from today
             newExpiresAt = new Date();
         }
         newExpiresAt.setMonth(newExpiresAt.getMonth() + parseInt(months));
         
-        // Update subscription
         const { error } = await supabaseClient
             .from('user_subscriptions')
             .update({
@@ -535,7 +498,6 @@ async function handleUserSearch() {
             </table>
         `;
         
-        // Add renew button handlers
         document.querySelectorAll('.btn-renew').forEach(btn => {
             btn.addEventListener('click', handleRenewSubscription);
         });
@@ -545,10 +507,6 @@ async function handleUserSearch() {
         resultsContainer.innerHTML = '<p class="error">Error searching users</p>';
     }
 }
-
-// ========================
-// Event Handlers
-// ========================
 
 async function handleSubscriptionToggle(event) {
     const button = event.currentTarget;
@@ -623,25 +581,18 @@ async function handleCancelBooking(event) {
 }
 
 function setupEventListeners() {
-    // Navigation
     document.getElementById('logout-btn').addEventListener('click', () => {
         supabaseClient.auth.signOut().then(() => {
             redirectToLogin();
         });
     });
 
-    // Refresh controls
     document.getElementById('refresh-users').addEventListener('click', loadUsers);
     document.getElementById('refresh-bookings').addEventListener('click', loadTodaysBookings);
     document.getElementById('view-subscriptions-btn').addEventListener('click', loadSubscriptions);
     
-    // Generate code button
     document.getElementById('generate-code-btn').addEventListener('click', generateRegistrationCode);
 }
-
-// ========================
-// Utility Functions
-// ========================
 
 function showLoading(element) {
     if (typeof element === 'string') {

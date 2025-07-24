@@ -27,9 +27,6 @@ const registerFormElement = document.getElementById('register-form-element');
 const mainContent = document.getElementById('main-content');
 const bookingPanel = document.getElementById('booking-panel');
 const userPanel = document.getElementById('user-panel');
-const profileName = document.getElementById('profile-name');
-const profilePhone = document.getElementById('profile-phone');
-const updateProfileBtn = document.getElementById('update-profile-btn');
 const prevMonthBtn = document.getElementById('prev-month');
 const nextMonthBtn = document.getElementById('next-month');
 const currentMonthEl = document.getElementById('current-month');
@@ -63,7 +60,7 @@ function createModal(type, message, callback) {
     const modalContent = document.createElement('div');
     modalContent.style.cssText = `
         background: white;
-        padding: 2rem;
+        padding: 1.5rem;
         border-radius: 0.5rem;
         max-width: 400px;
         width: 90%;
@@ -73,7 +70,7 @@ function createModal(type, message, callback) {
     let htmlContent = '';
     if (type === 'error') {
         htmlContent = `
-            <h3 style="color: #e74c3c; margin-bottom: 1rem;">Note</h3>
+            <h3 style="color: #e53e3e; margin-bottom: 1rem;">Note</h3>
             <p>${message}</p>
             <button class="auth-btn" style="margin-top: 1rem;" onclick="this.closest('.modal').remove()">OK</button>
         `;
@@ -148,7 +145,7 @@ async function init() {
                 handleBooking();
             });
         });
-        updateProfileBtn.addEventListener('click', handleUpdateProfile);
+        document.getElementById('profile-btn')?.addEventListener('click', handleUpdateProfile);
         prevMonthBtn.addEventListener('click', () => changeMonth(-1));
         nextMonthBtn.addEventListener('click', () => changeMonth(1));
         document.getElementById('add-guest-btn')?.addEventListener('click', addGuestPlayer);
@@ -181,7 +178,6 @@ function addGuestPlayer() {
 
 async function checkAuthStatus() {
     try {
-        // Get current session
         const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
         
         if (sessionError || !session) {
@@ -192,7 +188,6 @@ async function checkAuthStatus() {
             return;
         }
 
-        // Get user with the valid session
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
         
         if (userError) {
@@ -204,7 +199,6 @@ async function checkAuthStatus() {
             return;
         }
 
-        // Load profile
         const profile = await loadUserProfile(user.id);
         if (!profile) {
             console.error('Profile not found');
@@ -215,7 +209,6 @@ async function checkAuthStatus() {
             return;
         }
         
-        // Check subscription status
         const { data: subscription, error: subError } = await supabaseClient
             .from('user_subscriptions')
             .select('*')
@@ -234,7 +227,6 @@ async function checkAuthStatus() {
             return;
         }
         
-        // If we reach here, user has a valid session and active subscription
         userProfile = profile;
         showUserInterface();
         generateCalendar();
@@ -250,36 +242,33 @@ async function checkAuthStatus() {
     }
 }
 
-// Show guest interface (login/register)
 function showGuestInterface() {
     loginBtn.style.display = 'inline-block';
     registerBtn.style.display = 'inline-block';
     logoutBtn.style.display = 'none';
+    document.getElementById('profile-btn').style.display = 'none';
     bookingPanel.style.display = 'block';
     userPanel.style.display = 'none';
     loginForm.style.display = 'none';
     registerForm.style.display = 'none';
-    document.getElementById('admin-link').style.display = 'none'; // Hide admin link for guests
+    document.getElementById('admin-link').style.display = 'none';
 }
 
-// Show user interface (booking + dashboard)
 function showUserInterface() {
     loginBtn.style.display = 'none';
     registerBtn.style.display = 'none';
     logoutBtn.style.display = 'inline-block';
+    document.getElementById('profile-btn').style.display = 'inline-block';
     bookingPanel.style.display = 'block';
     userPanel.style.display = 'block';
     loginForm.style.display = 'none';
     registerForm.style.display = 'none';
-    // Show admin link only if user is admin
     document.getElementById('admin-link').style.display = userProfile?.is_admin ? 'inline-block' : 'none';
     if (userProfile) {
-        profileName.textContent = userProfile.name;
-        profilePhone.textContent = userProfile.phone;
+        document.getElementById('profile-btn').innerHTML = `<i class="fas fa-user"></i>`;
     }
 }
 
-// Toggle login/register form
 function toggleForm(formType) {
     loginForm.style.display = formType === 'login' ? 'block' : 'none';
     registerForm.style.display = formType === 'register' ? 'block' : 'none';
@@ -289,11 +278,9 @@ function toggleForm(formType) {
 
 async function loadUserProfile(userId) {
     try {
-        // First get the user's email from auth
         const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
         if (userError) throw userError;
         
-        // Try to get the profile with RLS-compliant query
         const { data: profile, error: profileError } = await supabaseClient
             .from('profiles')
             .select('*')
@@ -301,8 +288,7 @@ async function loadUserProfile(userId) {
             .single();
             
         if (profileError) {
-            if (profileError.code === 'PGRST116') { // No rows found
-                // Create new profile with RLS-compliant insert
+            if (profileError.code === 'PGRST116') {
                 const { data: newProfile, error: createError } = await supabaseClient
                     .from('profiles')
                     .insert({
@@ -372,13 +358,11 @@ async function handleLogin(e) {
         
         if (error) throw error;
         
-        // Load profile
         const profile = await loadUserProfile(user.id);
         if (!profile) {
             throw new Error('Profile not found');
         }
         
-        // Check subscription status
         const { data: subscription, error: subError } = await supabaseClient
             .from('user_subscriptions')
             .select('*')
@@ -416,7 +400,6 @@ async function handleRegister(e) {
     const password = document.getElementById('register-password').value.trim();
     
     try {
-        // 1. Validate registration code
         const { data: subscription, error: codeError } = await supabaseClient
             .from('user_subscriptions')
             .select('*')
@@ -429,7 +412,6 @@ async function handleRegister(e) {
             throw new Error('Invalid, inactive, or already used registration code');
         }
         
-        // 2. Create auth user
         const { data: { user }, error: authError } = await supabaseClient.auth.signUp({
             email,
             password,
@@ -440,7 +422,6 @@ async function handleRegister(e) {
         
         if (authError) throw authError;
         
-        // 3. Create profile record with email
         const { error: profileError } = await supabaseClient
             .from('profiles')
             .insert({ 
@@ -453,12 +434,11 @@ async function handleRegister(e) {
         
         if (profileError) throw profileError;
         
-        // 4. Link subscription to user
         const { error: subError } = await supabaseClient
             .from('user_subscriptions')
             .update({ 
                 user_id: user.id,
-                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // Extend by 30 days
+                expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             })
             .eq('id', subscription.id);
             
@@ -503,8 +483,7 @@ async function handleUpdateProfile() {
                 
                 userProfile.name = result.name;
                 userProfile.phone = result.phone;
-                profileName.textContent = userProfile.name;
-                profilePhone.textContent = userProfile.phone;
+                document.getElementById('profile-btn').innerHTML = `<i class="fas fa-user"></i> ${userProfile.name}`;
                 createModal('error', 'Profile updated successfully!');
             } catch (error) {
                 console.error('Profile update error:', error);
@@ -564,7 +543,6 @@ async function loadBookingsForDate(date) {
         
         if (bookingsError) throw bookingsError;
         
-        // Get user details separately
         const userIds = [...new Set(bookings.map(b => b.user_id))];
         const { data: users, error: usersError } = await supabaseClient
             .from('profiles')
@@ -573,7 +551,6 @@ async function loadBookingsForDate(date) {
         
         if (usersError) throw usersError;
         
-        // Combine the data
         const bookingsWithUsers = bookings.map(booking => {
             const user = users.find(u => u.id === booking.user_id);
             return {
@@ -616,7 +593,7 @@ function generateCalendar() {
     calendarEl.innerHTML = '';
     const today = new Date();
     const maxDate = new Date();
-    maxDate.setMonth(today.getMonth() + 3); // Allow booking up to 3 months in advance
+    maxDate.setMonth(today.getMonth() + 3);
 
     const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
     const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
@@ -625,10 +602,8 @@ function generateCalendar() {
 
     currentMonthEl.textContent = `${firstDayOfMonth.toLocaleString('default', { month: 'long' })} ${currentYear}`;
 
-    // Disable next month button if at max date
     nextMonthBtn.disabled = (currentYear === maxDate.getFullYear() && currentMonth === maxDate.getMonth());
 
-    // Add weekday headers
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     days.forEach(day => {
         const dayHeader = document.createElement('div');
@@ -637,14 +612,12 @@ function generateCalendar() {
         calendarEl.appendChild(dayHeader);
     });
 
-    // Add empty cells for days before the first day of the month
     for (let i = 0; i < firstDayIndex; i++) {
         const emptyDay = document.createElement('div');
         emptyDay.className = 'day empty';
         calendarEl.appendChild(emptyDay);
     }
 
-    // Add days of the month
     for (let i = 1; i <= daysInMonth; i++) {
         const date = new Date(currentYear, currentMonth, i);
         const day = document.createElement('div');
@@ -703,7 +676,7 @@ function generateTimeSlots(bookings) {
         } else {
             slot.classList.add('available');
             slot.textContent = `${formatTime(time)} - Available (${maxPlayers - bookedSlots} slots left)`;
-            slot.dataset.availableSlots = maxPlayers - bookedSlots - 1; // -1 for user
+            slot.dataset.availableSlots = maxPlayers - bookedSlots - 1;
             slot.addEventListener('click', () => {
                 document.querySelectorAll('.slot').forEach(s => s.classList.remove('selected'));
                 slot.classList.add('selected');
@@ -711,7 +684,6 @@ function generateTimeSlots(bookings) {
                 availableGuestSlots = parseInt(slot.dataset.availableSlots);
                 updateBookingSummary();
                 
-                // Show guest players section if user is logged in
                 if (userProfile) {
                     document.getElementById('guest-players').style.display = 'block';
                     const guestInputs = document.getElementById('guest-inputs');
@@ -781,7 +753,6 @@ async function handleBooking() {
         return;
     }
 
-    // Get guest names
     const guestInputs = document.querySelectorAll('.guest-name');
     const guestNames = Array.from(guestInputs)
         .map(input => input.value.trim())
@@ -795,7 +766,6 @@ async function handleBooking() {
     }
 
     try {
-        // Check available slots first
         const { data: existingBookings, error: checkError } = await supabaseClient
             .from('bookings')
             .select('*')
@@ -811,7 +781,6 @@ async function handleBooking() {
             throw new Error(`Only ${maxPlayers - bookedSlots} slots available for this time.`);
         }
 
-        // Create the booking
         const { data: booking, error } = await supabaseClient
             .from('bookings')
             .insert({ 
@@ -875,19 +844,16 @@ function showRulesModal(callback) {
     const agreeCheckbox = document.getElementById('agree-rules');
     const confirmBtn = document.getElementById('confirm-rules-btn');
     
-    // Reset checkbox state
     agreeCheckbox.checked = false;
     confirmBtn.disabled = true;
     
     modal.style.display = 'flex';
     
-    // Remove any existing event listeners to prevent duplicates
     const newCheckbox = agreeCheckbox.cloneNode(true);
     agreeCheckbox.parentNode.replaceChild(newCheckbox, agreeCheckbox);
     const newConfirmBtn = confirmBtn.cloneNode(true);
     confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
     
-    // Add new event listeners
     newCheckbox.addEventListener('change', () => {
         newConfirmBtn.disabled = !newCheckbox.checked;
     });
@@ -968,9 +934,4 @@ function showError(element, message) {
     element.innerHTML = `<p class="error">${message}</p>`;
 }
 
-// Initialize when page loads
 document.addEventListener('DOMContentLoaded', init);
-
-document.getElementById('add-guest-btn')?.addEventListener('click', () => {
-    addGuestPlayer();
-});
