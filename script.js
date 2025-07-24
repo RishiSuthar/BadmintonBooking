@@ -59,7 +59,7 @@ function createModal(type, message, callback) {
 
     const modalContent = document.createElement('div');
     modalContent.style.cssText = `
-        background: white;
+        background: #1a202c;
         padding: 1.5rem;
         border-radius: 0.5rem;
         max-width: 400px;
@@ -70,7 +70,7 @@ function createModal(type, message, callback) {
     let htmlContent = '';
     if (type === 'error') {
         htmlContent = `
-            <h3 style="color: #e53e3e; margin-bottom: 1rem;">Note</h3>
+            <h3 style="color:rgb(161, 218, 255); margin-bottom: 1rem;">Note</h3>
             <p>${message}</p>
             <button class="auth-btn" style="margin-top: 1rem;" onclick="this.closest('.modal').remove()">OK</button>
         `;
@@ -252,6 +252,15 @@ function showGuestInterface() {
     loginForm.style.display = 'none';
     registerForm.style.display = 'none';
     document.getElementById('admin-link').style.display = 'none';
+    successMessage.style.display = 'none';
+    receiptMessage.style.display = 'none';
+    document.getElementById('guest-players').style.display = 'none';
+    calendarEl.innerHTML = '';
+    timeSlotsEl.innerHTML = '';
+    bookingsListEl.innerHTML = '';
+    userBookingsListEl.innerHTML = '';
+    generateCalendar();
+    loadBookingsForDate(getTodayDate());
 }
 
 function showUserInterface() {
@@ -452,6 +461,7 @@ async function handleRegister(e) {
     }
 }
 
+
 async function handleLogout() {
     try {
         const { error } = await supabaseClient.auth.signOut();
@@ -460,16 +470,13 @@ async function handleLogout() {
         userProfile = null;
         selectedDate = null;
         selectedTime = null;
-        showGuestInterface();
-        calendarEl.innerHTML = '';
-        timeSlotsEl.innerHTML = '';
-        bookingsListEl.innerHTML = '';
-        userBookingsListEl.innerHTML = '';
+        showGuestInterface(); // This now handles all UI resets and initial loading
     } catch (error) {
         console.error('Logout error:', error);
         createModal('error', `Logout failed: ${error.message}`);
     }
 }
+
 
 async function handleUpdateProfile() {
     createModal('prompt', { name: userProfile.name, phone: userProfile.phone }, async (result) => {
