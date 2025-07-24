@@ -874,3 +874,158 @@ footer {
 button, input, .slot, .day {
     transition: all 0.3s ease;
 }
+
+
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    overflow: auto;
+}
+
+.modal-content {
+    background: #2d3748;
+    border-radius: 8px;
+    max-width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 20px;
+    color: #e2e8f0;
+    box-sizing: border-box;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Rules modal specific styles */
+#rules-modal .modal-body {
+    flex: 1;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+#rules-modal .scroll-prompt {
+    font-size: 0.8rem;
+    color: #a0aec0;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+#rules-modal h3 {
+    margin: 1rem 0 0.5rem;
+    font-size: 1.1rem;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#rules-modal ul {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+    list-style-type: disc;
+    font-size: 0.875rem;
+    color: #e2e8f0;
+}
+
+#rules-modal ul li {
+    margin-bottom: 0.5rem;
+}
+
+#rules-modal p {
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    color: #e2e8f0;
+}
+
+/* Sticky footer for acknowledgment */
+#rules-modal .sticky-footer {
+    position: sticky;
+    bottom: 0;
+    background: #2d3748;
+    padding: 10px 0;
+    border-top: 1px solid #4a5568;
+    z-index: 1;
+}
+
+#rules-modal .rules-agreement {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+#rules-modal .rules-agreement input[type="checkbox"] {
+    transform: scale(1.3);
+    cursor: pointer;
+}
+
+#rules-modal .rules-agreement label {
+    font-size: 0.875rem;
+    color: #e2e8f0;
+}
+
+#rules-modal #confirm-rules-btn {
+    width: 100%;
+    padding: 12px;
+    background-color: #38a169;
+    color: #e2e8f0;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+#rules-modal #confirm-rules-btn:disabled {
+    background-color: #4a5568;
+    cursor: not-allowed;
+}
+
+#rules-modal #confirm-rules-btn:hover:not(:disabled) {
+    background-color: #2f855a;
+}
+
+/* Mobile-specific styles */
+@media (max-width: 600px) {
+    #rules-modal .modal-content {
+        width: 90%;
+        padding: 15px;
+        max-height: 80vh;
+    }
+
+    #rules-modal h3 {
+        font-size: 1rem;
+    }
+
+    #rules-modal ul,
+    #rules-modal p,
+    #rules-modal .scroll-prompt,
+    #rules-modal .rules-agreement label {
+        font-size: 0.8rem;
+    }
+
+    #rules-modal .sticky-footer {
+        padding: 8px 0;
+    }
+
+    #rules-modal #confirm-rules-btn {
+        padding: 10px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Desktop-specific styles */
+@media (min-width: 768px) {
+    #rules-modal .modal-content {
+        max-width: 500px;
+    }
+}
