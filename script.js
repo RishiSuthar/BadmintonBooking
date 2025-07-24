@@ -462,7 +462,6 @@ async function handleRegister(e) {
     }
 }
 
-
 async function handleLogout() {
     try {
         const { error } = await supabaseClient.auth.signOut();
@@ -477,7 +476,6 @@ async function handleLogout() {
         createModal('error', `Logout failed: ${error.message}`);
     }
 }
-
 
 async function handleUpdateProfile() {
     createModal('prompt', { name: userProfile.name, phone: userProfile.phone }, async (result) => {
@@ -942,7 +940,6 @@ function showError(element, message) {
     element.innerHTML = `<p class="error">${message}</p>`;
 }
 
-
 // Welcome Modal Functionality
 document.addEventListener('DOMContentLoaded', () => {
     // Show welcome modal on first visit
@@ -955,6 +952,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Close welcome modal
     document.getElementById('close-welcome-btn').addEventListener('click', () => {
+        document.getElementById('welcome-modal').style.display = 'none';
+    });
+    
+    // Close welcome modal with top button
+    document.getElementById('close-welcome-btn-top').addEventListener('click', () => {
         document.getElementById('welcome-modal').style.display = 'none';
     });
 });
@@ -970,7 +972,5 @@ window.addEventListener('scroll', () => {
         header.style.transform = 'translateY(0)';
     }
 });
-
-
 
 document.addEventListener('DOMContentLoaded', init);
