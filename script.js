@@ -61,7 +61,8 @@ function createModal(type, message, callback) {
     modalContent.style.cssText = `
         background: #1a202c;
         padding: 1.5rem;
-        border-radius: 0.5rem;
+        border-radius: 1.5rem;
+        border : 1px solid white;
         max-width: 400px;
         width: 90%;
         text-align: center;
