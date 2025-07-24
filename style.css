@@ -733,3 +733,140 @@ footer a:hover {
         flex: 1 1 calc(25% - 12px);
     }
 }
+
+
+/* Welcome Modal Styles */
+#welcome-modal .modal-content {
+    max-width: 600px;
+    animation: slideIn 0.5s ease-out;
+}
+
+.welcome-content {
+    margin: 20px 0;
+}
+
+.welcome-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.welcome-section h3 {
+    color: #63b3ed;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.welcome-section ol, .welcome-section ul {
+    padding-left: 20px;
+    margin-top: 8px;
+}
+
+.welcome-section li {
+    margin-bottom: 6px;
+}
+
+#close-welcome-btn {
+    background-color: #38a169;
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    margin-top: 10px;
+}
+
+#close-welcome-btn:hover {
+    background-color: #2f855a;
+}
+
+/* Animations */
+@keyframes slideIn {
+    from {
+        transform: translateY(-50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.panel, .auth-form {
+    animation: fadeIn 0.4s ease-out;
+}
+
+/* Enhanced Footer */
+footer {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #a0aec0;
+    padding: 20px 0;
+    background-color: #2d3748;
+    border-radius: 8px;
+    margin-top: 20px;
+    animation: fadeIn 0.6s ease-out;
+}
+
+.footer-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.footer-location {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.footer-location i {
+    color: #63b3ed;
+}
+
+/* Hover effects */
+.auth-btn:hover, .profile-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.slot.available:hover {
+    transform: scale(1.03);
+    box-shadow: 0 4px 8px rgba(56, 161, 105, 0.3);
+}
+
+/* Pulse animation for important elements */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.register-btn {
+    animation: pulse 2s infinite;
+}
+
+/* Transition effects */
+button, input, .slot, .day {
+    transition: all 0.3s ease;
+}

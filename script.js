@@ -942,4 +942,35 @@ function showError(element, message) {
     element.innerHTML = `<p class="error">${message}</p>`;
 }
 
+
+// Welcome Modal Functionality
+document.addEventListener('DOMContentLoaded', () => {
+    // Show welcome modal on first visit
+    if (!localStorage.getItem('welcomeShown')) {
+        setTimeout(() => {
+            document.getElementById('welcome-modal').style.display = 'flex';
+            localStorage.setItem('welcomeShown', 'true');
+        }, 1000);
+    }
+
+    // Close welcome modal
+    document.getElementById('close-welcome-btn').addEventListener('click', () => {
+        document.getElementById('welcome-modal').style.display = 'none';
+    });
+});
+
+// Add animation class to header on scroll
+window.addEventListener('scroll', () => {
+    const header = document.querySelector('header');
+    if (window.scrollY > 10) {
+        header.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+        header.style.transform = 'translateY(-2px)';
+    } else {
+        header.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.3)';
+        header.style.transform = 'translateY(0)';
+    }
+});
+
+
+
 document.addEventListener('DOMContentLoaded', init);
