@@ -354,53 +354,89 @@ async function handleNewProfile(userId) {
 }
 
 async function handleLogin(e) {
-    e.preventDefault();
-    const email = document.getElementById('login-email').value.trim();
-    const password = document.getElementById('login-password').value.trim();
-    
-    try {
-        showLoading(loginForm, 'Logging in...');
-        
-        const { data: { user }, error } = await supabaseClient.auth.signInWithPassword({
-            email,
-            password
-        });
-        
-        if (error) throw error;
-        
-        const profile = await loadUserProfile(user.id);
-        if (!profile) {
-            throw new Error('Profile not found');
-        }
-        
-        const { data: subscription, error: subError } = await supabaseClient
-            .from('user_subscriptions')
-            .select('*')
-            .eq('user_id', user.id)
-            .eq('is_active', true)
-            .gt('expires_at', new Date().toISOString())
-            .single();
-            
-        if (subError || !subscription) {
-            await supabaseClient.auth.signOut();
-            throw new Error('Your subscription has expired or is inactive. Please contact an admin to renew.');
-        }
-        
-        userProfile = profile;
-        showUserInterface();
-        generateCalendar();
-        await loadBookingsForDate(getTodayDate());
-        await loadUserBookings();
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        createModal('error', `Login failed: ${error.message}`);
-    } finally {
-        loginForm.style.display = 'none';
-        hideLoading(loginForm);
-    }
-}
+  e.preventDefault();
+  
+  // Get form elements
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value.trim();
+  const errorDisplay = document.createElement('div');
+  errorDisplay.className = 'login-error';
+  errorDisplay.style.color = 'var(--danger)';
+  errorDisplay.style.marginTop = '10px';
+  errorDisplay.style.textAlign = 'center';
 
+  // Clear any previous errors
+  const existingError = document.querySelector('.login-error');
+  if (existingError) existingError.remove();
+
+  try {
+    // Basic validation
+    if (!email || !password) {
+      throw new Error('Please fill in all fields');
+    }
+
+    // Show loading state
+    const submitButton = loginFormElement.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton.textContent;
+    submitButton.innerHTML = '<span class="loading-spinner"></span> Logging in...';
+    submitButton.disabled = true;
+
+    // Attempt login
+    const { data: { user }, error } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) throw error;
+
+    // Load user profile
+    const profile = await loadUserProfile(user.id);
+    if (!profile) {
+      throw new Error('Profile not found');
+    }
+
+    // Check subscription status
+    const { data: subscription, error: subError } = await supabaseClient
+      .from('user_subscriptions')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+
+    if (subError || !subscription) {
+      await supabaseClient.auth.signOut();
+      throw new Error('Your subscription has expired or is inactive. Please contact an admin to renew.');
+    }
+
+    // Login successful - update UI
+    userProfile = profile;
+    loginForm.style.display = 'none';
+    showUserInterface();
+    generateCalendar();
+    await loadBookingsForDate(getTodayDate());
+    await loadUserBookings();
+
+  } catch (error) {
+    // Show error message inline
+    errorDisplay.textContent = error.message;
+    loginFormElement.appendChild(errorDisplay);
+    
+    // Shake animation for error state
+    loginFormElement.style.animation = 'shake 0.5s';
+    setTimeout(() => {
+      loginFormElement.style.animation = '';
+    }, 500);
+
+  } finally {
+    // Reset button state
+    const submitButton = loginFormElement.querySelector('button[type="submit"]');
+    if (submitButton) {
+      submitButton.textContent = 'Login';
+      submitButton.disabled = false;
+    }
+  }
+}
 async function handleRegister(e) {
     e.preventDefault();
     const code = document.getElementById('register-code').value.trim();

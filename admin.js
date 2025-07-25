@@ -4,34 +4,6 @@ const supabaseClient = supabase.createClient(
 );
 
 document.addEventListener('DOMContentLoaded', async () => {
-    // Show reset modal
-    document.getElementById('forgot-password-link').addEventListener('click', (e) => {
-        e.preventDefault();
-        document.getElementById('reset-password-modal').style.display = 'flex';
-        document.getElementById('reset-password-message').innerHTML = '';
-    });
-
-    // Close modal
-    document.getElementById('close-reset-modal').addEventListener('click', () => {
-        document.getElementById('reset-password-modal').style.display = 'none';
-    });
-
-    // Handle reset form
-    document.getElementById('reset-password-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const email = document.getElementById('reset-password-email').value.trim();
-        const msg = document.getElementById('reset-password-message');
-        msg.innerHTML = 'Sending...';
-        try {
-            const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
-                redirectTo: window.location.origin + '/index.html'
-            });
-            if (error) throw error;
-            msg.innerHTML = '<span style="color:var(--success);">Reset link sent! Check your email.</span>';
-        } catch (err) {
-            msg.innerHTML = `<span style="color:var(--danger);">Error: ${err.message}</span>`;
-        }
-    });
     try {
         console.log('[Admin] Initializing...');
         
@@ -57,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         setTimeout(redirectToLogin, 2000);
     }
 });
+
 
 function updateGreeting(name) {
     const el = document.getElementById('admin-greeting');
