@@ -974,3 +974,52 @@ window.addEventListener('scroll', () => {
 });
 
 document.addEventListener('DOMContentLoaded', init);
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Password Reset Modal logic
+    const forgotLink = document.getElementById('forgot-password-link');
+    const resetModal = document.getElementById('reset-password-modal');
+    const closeResetModal = document.getElementById('close-reset-modal');
+    const resetForm = document.getElementById('reset-password-form');
+    const resetMsg = document.getElementById('reset-password-message');
+
+    // Show the reset modal when "Forgot Password?" is clicked
+    if (forgotLink) {
+        forgotLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (resetModal) {
+                resetModal.style.display = 'flex';
+                if (resetMsg) resetMsg.innerHTML = '';
+            }
+        });
+    }
+
+    // Close the reset modal when the close button is clicked
+    if (closeResetModal) {
+        closeResetModal.addEventListener('click', () => {
+            if (resetModal) resetModal.style.display = 'none';
+        });
+    }
+
+    // Handle the password reset form submission
+    if (resetForm) {
+        resetForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const emailInput = document.getElementById('reset-password-email');
+            if (!emailInput) return;
+            const email = emailInput.value.trim();
+            if (resetMsg) resetMsg.innerHTML = 'Sending...';
+            try {
+                const { error } = await supabaseClient.auth.resetPasswordForEmail(email, {
+                    redirectTo: 'https://sgsvmbadminton.netlify.app/reset.html'
+                });
+                if (error) throw error;
+                if (resetMsg) resetMsg.innerHTML = '<span style="color:var(--success);">Reset link sent! Check your email.</span>';
+            } catch (err) {
+                if (resetMsg) resetMsg.innerHTML = `<span style="color:var(--danger);">Error: ${err.message}</span>`;
+            }
+        });
+    }
+});

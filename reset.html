@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Reset Password</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="container">
+    <h2>Set a New Password</h2>
+    <form id="new-password-form">
+      <input type="password" id="new-password" placeholder="New Password" required>
+      <button type="submit">Set Password</button>
+    </form>
+    <div id="reset-message"></div>
+  </div>
+  <script>
+    const SUPABASE_URL = 'https://wezgcqbagksqxyugqqad.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndlemdjcWJhZ2tzcXh5dWdxcWFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMwOTUxNjksImV4cCI6MjA2ODY3MTE2OX0.AXnI7UgvWhnnAdZ5V9WGucdI4T-z2vTVAuRBU0R9qKQ';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Get access_token from URL
+    const params = new URLSearchParams(window.location.hash.replace('#', '?'));
+    const access_token = params.get('access_token');
+
+    if (!access_token) {
+      document.getElementById('reset-message').innerHTML = '<span style="color:red;">Invalid or expired reset link.</span>';
+      document.getElementById('new-password-form').style.display = 'none';
+    }
+
+    document.getElementById('new-password-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newPassword = document.getElementById('new-password').value;
+      document.getElementById('reset-message').innerHTML = 'Updating...';
+
+      // Set the session with the access_token
+      const { data, error } = await supabase.auth.setSession({
+        access_token: access_token,
+        refresh_token: params.get('refresh_token')
+      });
+
+      if (error) {
+        document.getElementById('reset-message').innerHTML = `<span style="color:red;">${error.message}</span>`;
+        return;
+      }
+
+      // Now update the password
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) {
+        document.getElementById('reset-message').innerHTML = `<span style="color:red;">${updateError.message}</span>`;
+      } else {
+        document.getElementById('reset-message').innerHTML = '<span style="color:green;">Password updated! You can now <a href="index.html">login</a>.</span>';
+        document.getElementById('new-password-form').style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
