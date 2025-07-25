@@ -230,6 +230,7 @@ async function checkAuthStatus() {
         
         userProfile = profile;
         showUserInterface();
+        selectedDate = getTodayDate();
         generateCalendar();
         await loadBookingsForDate(getTodayDate());
         await loadUserBookings();
@@ -412,6 +413,7 @@ async function handleLogin(e) {
     // Login successful - update UI
     userProfile = profile;
     loginForm.style.display = 'none';
+    selectedDate = getTodayDate();
     showUserInterface();
     generateCalendar();
     await loadBookingsForDate(getTodayDate());
@@ -437,6 +439,8 @@ async function handleLogin(e) {
     }
   }
 }
+
+
 async function handleRegister(e) {
     e.preventDefault();
     const code = document.getElementById('register-code').value.trim();
